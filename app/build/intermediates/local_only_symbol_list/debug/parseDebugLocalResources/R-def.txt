@@ -1,0 +1,13 @@
+R_DEF: Internal format may change without notice
+local
+id btnIntroNext
+id btnIntroOpenAbout
+id btnOpenDeveloperSettings
+id btnOpenSettings
+id containerActivities
+id labelDiscovered
+id scrollDiscovered
+id txtLog
+layout activity_intro
+layout activity_main
+string app_name

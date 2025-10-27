@@ -1,0 +1,10 @@
+[
+    {
+        "merged": "com.example.devtoolsopener.app-debug-20:/layout_activity_intro.xml.flat",
+        "source": "com.example.devtoolsopener.app-main-22:/layout/activity_intro.xml"
+    },
+    {
+        "merged": "com.example.devtoolsopener.app-debug-20:/layout_activity_main.xml.flat",
+        "source": "com.example.devtoolsopener.app-main-22:/layout/activity_main.xml"
+    }
+]
