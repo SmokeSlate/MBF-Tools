@@ -1,9 +1,9 @@
 -- Merging decision tree log ---
 manifest
-ADDED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml:2:1-20:12
-INJECTED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml:2:1-20:12
-INJECTED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml:2:1-20:12
-INJECTED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml:2:1-20:12
+ADDED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml:2:1-20:12
+INJECTED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml:2:1-20:12
+INJECTED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml:2:1-20:12
+INJECTED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml:2:1-20:12
 MERGED from [androidx.activity:activity:1.9.2] C:\Users\jackp\.gradle\caches\8.9\transforms\70c672f4228727d356d3606ace144596\transformed\activity-1.9.2\AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.activity:activity-ktx:1.9.2] C:\Users\jackp\.gradle\caches\8.9\transforms\cfe77871c3d79a31e75a10424024ede5\transformed\activity-ktx-1.9.2\AndroidManifest.xml:2:1-7:12
 MERGED from [androidx.core:core:1.13.1] C:\Users\jackp\.gradle\caches\8.9\transforms\619483817c07ea111f82ef683c4a9537\transformed\core-1.13.1\AndroidManifest.xml:17:1-30:12
@@ -24,30 +24,30 @@ MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\jackp\.gradle\cach
 MERGED from [androidx.tracing:tracing:1.0.0] C:\Users\jackp\.gradle\caches\8.9\transforms\2386ae689827b8c808c76c9b37e0a4da\transformed\tracing-1.0.0\AndroidManifest.xml:17:1-24:12
 MERGED from [androidx.arch.core:core-runtime:2.2.0] C:\Users\jackp\.gradle\caches\8.9\transforms\117bbf812484142a61ac06de983a98c6\transformed\core-runtime-2.2.0\AndroidManifest.xml:17:1-22:12
 	package
-		INJECTED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml
+		INJECTED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml
 	android:versionName
-		INJECTED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml
+		INJECTED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml
 	android:versionCode
-		INJECTED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml
+		INJECTED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml
 	xmlns:android
-		ADDED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml:2:11-69
+		ADDED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml:2:11-69
 uses-permission#android.permission.ACCESS_NETWORK_STATE
-ADDED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml:3:5-79
+ADDED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml:3:5-79
 	android:name
-		ADDED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml:3:22-76
+		ADDED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml:3:22-76
 uses-permission#android.permission.ACCESS_WIFI_STATE
-ADDED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml:4:5-76
+ADDED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml:4:5-76
 	android:name
-		ADDED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml:4:22-73
+		ADDED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml:4:22-73
 queries
-ADDED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml:5:5-7:15
+ADDED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml:5:5-7:15
 package#com.android.settings
-ADDED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml:6:9-56
+ADDED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml:6:9-56
 	android:name
-		ADDED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml:6:18-53
+		ADDED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml:6:18-53
 application
-ADDED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml:8:5-19:19
-INJECTED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml:8:5-19:19
+ADDED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml:8:5-19:19
+INJECTED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml:8:5-19:19
 MERGED from [androidx.core:core:1.13.1] C:\Users\jackp\.gradle\caches\8.9\transforms\619483817c07ea111f82ef683c4a9537\transformed\core-1.13.1\AndroidManifest.xml:28:5-89
 MERGED from [androidx.core:core:1.13.1] C:\Users\jackp\.gradle\caches\8.9\transforms\619483817c07ea111f82ef683c4a9537\transformed\core-1.13.1\AndroidManifest.xml:28:5-89
 MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\jackp\.gradle\caches\8.9\transforms\eecb9f33cbdcbc77dbaed5cee53e425c\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:24:5-25:19
@@ -57,33 +57,33 @@ MERGED from [androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\jackp\.g
 MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\jackp\.gradle\caches\8.9\transforms\c319ca558f9802051211fb4f794d5f6c\transformed\startup-runtime-1.1.1\AndroidManifest.xml:25:5-31:19
 MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\jackp\.gradle\caches\8.9\transforms\c319ca558f9802051211fb4f794d5f6c\transformed\startup-runtime-1.1.1\AndroidManifest.xml:25:5-31:19
 	android:extractNativeLibs
-		INJECTED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml
+		INJECTED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml
 	android:appComponentFactory
 		ADDED from [androidx.core:core:1.13.1] C:\Users\jackp\.gradle\caches\8.9\transforms\619483817c07ea111f82ef683c4a9537\transformed\core-1.13.1\AndroidManifest.xml:28:18-86
 	android:label
-		ADDED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml:9:9-41
+		ADDED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml:9:9-41
 	android:theme
-		ADDED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml:10:9-59
+		ADDED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml:10:9-59
 activity#com.example.devtoolsopener.MainActivity
-ADDED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml:11:9-18:20
+ADDED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml:11:9-18:20
 	android:exported
-		ADDED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml:13:13-36
+		ADDED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml:13:13-36
 	android:name
-		ADDED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml:12:13-41
+		ADDED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml:12:13-41
 intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
-ADDED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml:14:13-17:29
+ADDED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml:14:13-17:29
 action#android.intent.action.MAIN
-ADDED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml:15:17-69
+ADDED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml:15:17-69
 	android:name
-		ADDED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml:15:25-66
+		ADDED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml:15:25-66
 category#android.intent.category.LAUNCHER
-ADDED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml:16:17-77
+ADDED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml:16:17-77
 	android:name
-		ADDED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml:16:27-74
+		ADDED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml:16:27-74
 uses-sdk
-INJECTED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml reason: use-sdk injection requested
-INJECTED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml
-INJECTED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml
+INJECTED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml
+INJECTED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml
 MERGED from [androidx.activity:activity:1.9.2] C:\Users\jackp\.gradle\caches\8.9\transforms\70c672f4228727d356d3606ace144596\transformed\activity-1.9.2\AndroidManifest.xml:20:5-44
 MERGED from [androidx.activity:activity:1.9.2] C:\Users\jackp\.gradle\caches\8.9\transforms\70c672f4228727d356d3606ace144596\transformed\activity-1.9.2\AndroidManifest.xml:20:5-44
 MERGED from [androidx.activity:activity-ktx:1.9.2] C:\Users\jackp\.gradle\caches\8.9\transforms\cfe77871c3d79a31e75a10424024ede5\transformed\activity-ktx-1.9.2\AndroidManifest.xml:5:5-44
@@ -123,9 +123,9 @@ MERGED from [androidx.tracing:tracing:1.0.0] C:\Users\jackp\.gradle\caches\8.9\t
 MERGED from [androidx.arch.core:core-runtime:2.2.0] C:\Users\jackp\.gradle\caches\8.9\transforms\117bbf812484142a61ac06de983a98c6\transformed\core-runtime-2.2.0\AndroidManifest.xml:20:5-44
 MERGED from [androidx.arch.core:core-runtime:2.2.0] C:\Users\jackp\.gradle\caches\8.9\transforms\117bbf812484142a61ac06de983a98c6\transformed\core-runtime-2.2.0\AndroidManifest.xml:20:5-44
 	android:targetSdkVersion
-		INJECTED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml
+		INJECTED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml
 	android:minSdkVersion
-		INJECTED from C:\Users\jackp\android\apps\DevToolsOpener\app\src\main\AndroidManifest.xml
+		INJECTED from C:\Users\jackp\Documents\GitHub\QuestDevSettings\app\src\main\AndroidManifest.xml
 permission#${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
 ADDED from [androidx.core:core:1.13.1] C:\Users\jackp\.gradle\caches\8.9\transforms\619483817c07ea111f82ef683c4a9537\transformed\core-1.13.1\AndroidManifest.xml:22:5-24:47
 	android:protectionLevel

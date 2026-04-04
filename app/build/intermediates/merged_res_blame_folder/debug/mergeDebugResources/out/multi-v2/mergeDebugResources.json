@@ -404,13 +404,13 @@
                     }
                 },
                 {
-                    "source": "C:\\Users\\jackp\\android\\apps\\DevToolsOpener\\app\\src\\main\\res\\values\\strings.xml",
+                    "source": "C:\\Users\\jackp\\Documents\\GitHub\\QuestDevSettings\\app\\src\\main\\res\\values\\strings.xml",
                     "from": {
                         "startLines": "2",
                         "startColumns": "4",
-                        "startOffsets": "55",
+                        "startOffsets": "57",
                         "endColumns": "52",
-                        "endOffsets": "103"
+                        "endOffsets": "105"
                     },
                     "to": {
                         "startLines": "91",

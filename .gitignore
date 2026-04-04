@@ -1,0 +1,27 @@
+.gradle/
+
+# Local environment
+local.properties
+
+# Android/Gradle build output
+build/
+*/build/
+.cxx/
+.externalNativeBuild/
+captures/
+
+# IDE files
+.idea/caches/
+.idea/libraries/
+.idea/modules.xml
+.idea/navEditor.xml
+.idea/assetWizardSettings.xml
+.idea/workspace.xml
+*.iml
+
+# Editor settings
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db

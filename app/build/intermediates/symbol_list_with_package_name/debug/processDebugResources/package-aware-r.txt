@@ -103,8 +103,6 @@ id action_text
 id actions
 id async
 id blocking
-id btnIntroNext
-id btnIntroOpenAbout
 id btnOpenDeveloperSettings
 id btnOpenSettings
 id chronometer
@@ -151,7 +149,6 @@ id view_tree_on_back_pressed_dispatcher_owner
 id view_tree_saved_state_registry_owner
 id view_tree_view_model_store_owner
 integer status_bar_notification_info_maxnum
-layout activity_intro
 layout activity_main
 layout custom_dialog
 layout ime_base_split_test_activity
