@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/guide_header"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/txtStepCounter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/guide_step_counter"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnOpenAdvancedSmall"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minHeight="0dp"
+            android:minWidth="0dp"
+            android:paddingLeft="10dp"
+            android:paddingTop="6dp"
+            android:paddingRight="10dp"
+            android:paddingBottom="6dp"
+            android:text="@string/guide_action_advanced_small"
+            android:textAllCaps="false"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="16dp"
+        android:layout_weight="1"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="5"
+            android:orientation="vertical">
+
+            <ImageView
+                android:id="@+id/imgGuideStep"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:adjustViewBounds="true"
+                android:background="@drawable/guide_placeholder"
+                android:contentDescription="@string/guide_screenshot_placeholder"
+                android:padding="24dp"
+                android:scaleType="centerInside"
+                android:src="@android:drawable/ic_menu_gallery" />
+
+            <TextView
+                android:id="@+id/txtGuideCaption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <Space
+            android:layout_width="20dp"
+            android:layout_height="wrap_content" />
+
+        <ScrollView
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="4"
+            android:fillViewport="true">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/txtGuideTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/txtGuideBody"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:textSize="15sp" />
+
+                <TextView
+                    android:id="@+id/txtGuideStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="@string/status_not_connected"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:id="@+id/panelGuideSupport"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="#22000000"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="12dp">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/guide_support_title"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="@string/guide_support_body"
+                            android:textSize="13sp" />
+                    </LinearLayout>
+
+                    <Space
+                        android:layout_width="12dp"
+                        android:layout_height="wrap_content" />
+
+                    <Button
+                        android:id="@+id/btnGuideFixForm"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:minHeight="0dp"
+                        android:text="@string/home_action_fix_form"
+                        android:textAllCaps="false" />
+
+                    <Space
+                        android:layout_width="10dp"
+                        android:layout_height="wrap_content" />
+
+                    <Button
+                        android:id="@+id/btnGuideFaq"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:minHeight="0dp"
+                        android:text="@string/home_action_full_faq"
+                        android:textAllCaps="false" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/panelGuidePrecheck"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="#22000000"
+                    android:orientation="vertical"
+                    android:padding="12dp"
+                    android:visibility="gone">
+
+                    <CheckBox
+                        android:id="@+id/checkboxGuideMultipleAccounts"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/guide_check_multiple_accounts" />
+
+                    <CheckBox
+                        android:id="@+id/checkboxGuideUnlockCode"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/guide_check_unlock_code" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/panelGuidePair"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="#22000000"
+                    android:orientation="vertical"
+                    android:padding="12dp"
+                    android:visibility="gone">
+
+                    <EditText
+                        android:id="@+id/inputGuidePairingCode"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="@string/hint_pairing_code"
+                        android:inputType="number"
+                        android:maxLength="6"
+                        android:singleLine="true" />
+
+                    <EditText
+                        android:id="@+id/inputGuidePairingPort"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:hint="@string/hint_pairing_port"
+                        android:inputType="number"
+                        android:singleLine="true" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/panelGuideConnect"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="#22000000"
+                    android:orientation="vertical"
+                    android:padding="12dp"
+                    android:visibility="gone">
+
+                    <EditText
+                        android:id="@+id/inputGuideDebugPort"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="@string/hint_debug_port"
+                        android:inputType="number"
+                        android:singleLine="true" />
+
+                    <Button
+                        android:id="@+id/btnGuideDetectPort"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/action_detect_debug_port"
+                        android:textAllCaps="false" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/btnGuidePrimary"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:textAllCaps="false" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btnGuideBack"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/guide_action_back"
+                        android:textAllCaps="false" />
+
+                    <Space
+                        android:layout_width="10dp"
+                        android:layout_height="wrap_content" />
+
+                    <Button
+                        android:id="@+id/btnGuideNext"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/guide_action_next"
+                        android:textAllCaps="false" />
+                </LinearLayout>
+            </LinearLayout>
+        </ScrollView>
+    </LinearLayout>
+</LinearLayout>
