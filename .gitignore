@@ -1,4 +1,5 @@
 .gradle/
+/.gradle/**
 
 # Local environment
 local.properties
@@ -6,6 +7,12 @@ local.properties
 # Android/Gradle build output
 build/
 */build/
+!app/build/
+app/build/*
+!app/build/outputs/
+app/build/outputs/*
+!app/build/outputs/apk/
+!app/build/outputs/apk/**
 .cxx/
 .externalNativeBuild/
 captures/
@@ -20,8 +27,10 @@ captures/
 *.iml
 
 # Editor settings
-.vscode/
+
 
 # OS files
 .DS_Store
 Thumbs.db
+# app/signing.properties
+# keystore/mbftools-release.jks

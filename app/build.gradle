@@ -7,7 +7,7 @@ import java.util.Properties
 import java.io.FileInputStream
 
 android {
-    namespace 'com.example.devtoolsopener'
+    namespace 'org.sm0ke.mbftools'
     compileSdk 34
 
     def keystorePropsFile = rootProject.file("app/signing.properties")
@@ -28,7 +28,7 @@ android {
     }
 
     defaultConfig {
-        applicationId 'org.sm0ke.devtoolsopener'
+        applicationId 'org.sm0ke.mbftools'
         minSdk 21
         targetSdk 34
         versionCode 1
@@ -39,7 +39,9 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
+            if (keystorePropsFile.exists()) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 
