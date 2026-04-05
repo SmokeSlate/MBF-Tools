@@ -2,6 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@drawable/bg_app_gradient"
     android:orientation="vertical"
     android:padding="20dp">
 
@@ -21,6 +22,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/guide_header"
+                android:textColor="@color/text_primary"
                 android:textSize="22sp"
                 android:textStyle="bold" />
 
@@ -30,6 +32,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:text="@string/guide_step_counter"
+                android:textColor="@color/text_muted"
                 android:textSize="13sp" />
         </LinearLayout>
 
@@ -37,6 +40,7 @@
             android:id="@+id/btnOpenAdvancedSmall"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:background="@drawable/bg_button_ghost"
             android:minHeight="0dp"
             android:minWidth="0dp"
             android:paddingLeft="10dp"
@@ -45,6 +49,7 @@
             android:paddingBottom="6dp"
             android:text="@string/guide_action_advanced_small"
             android:textAllCaps="false"
+            android:textColor="@color/text_primary"
             android:textSize="12sp" />
     </LinearLayout>
 
@@ -59,7 +64,9 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="5"
-            android:orientation="vertical">
+            android:background="@drawable/bg_panel"
+            android:orientation="vertical"
+            android:padding="18dp">
 
             <ImageView
                 android:id="@+id/imgGuideStep"
@@ -69,7 +76,7 @@
                 android:adjustViewBounds="true"
                 android:background="@drawable/guide_placeholder"
                 android:contentDescription="@string/guide_screenshot_placeholder"
-                android:padding="24dp"
+                android:padding="20dp"
                 android:scaleType="centerInside"
                 android:src="@android:drawable/ic_menu_gallery" />
 
@@ -78,6 +85,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
+                android:textColor="@color/text_muted"
                 android:textSize="13sp" />
         </LinearLayout>
 
@@ -85,105 +93,127 @@
             android:layout_width="20dp"
             android:layout_height="wrap_content" />
 
-        <ScrollView
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="4"
-            android:fillViewport="true">
+            android:background="@drawable/bg_panel_secondary"
+            android:orientation="vertical"
+            android:padding="18dp">
 
-            <LinearLayout
+            <ScrollView
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <TextView
-                    android:id="@+id/txtGuideTitle"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textSize="20sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/txtGuideBody"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:textSize="15sp" />
-
-                <TextView
-                    android:id="@+id/txtGuideStatus"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:text="@string/status_not_connected"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:fillViewport="true">
 
                 <LinearLayout
-                    android:id="@+id/panelGuideSupport"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:background="#22000000"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:padding="12dp">
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/txtGuideTitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/text_primary"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/txtGuideBody"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="15sp" />
+
+                    <TextView
+                        android:id="@+id/txtGuideStatus"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="@string/status_not_connected"
+                        android:textColor="@color/text_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
 
                     <LinearLayout
-                        android:layout_width="0dp"
+                        android:id="@+id/panelGuideSupport"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
+                        android:layout_marginTop="12dp"
+                        android:background="@drawable/bg_panel"
+                        android:orientation="vertical"
+                        android:padding="16dp">
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/guide_support_title"
+                            android:textColor="@color/text_primary"
                             android:textSize="15sp"
                             android:textStyle="bold" />
 
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
+                            android:layout_marginTop="6dp"
                             android:text="@string/guide_support_body"
+                            android:textColor="@color/text_muted"
                             android:textSize="13sp" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="14dp"
+                            android:orientation="horizontal">
+
+                            <Button
+                                android:id="@+id/btnGuideFixForm"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:background="@drawable/bg_button_secondary"
+                                android:minHeight="52dp"
+                                android:paddingLeft="18dp"
+                                android:paddingTop="12dp"
+                                android:paddingRight="18dp"
+                                android:paddingBottom="12dp"
+                                android:text="@string/home_action_fix_form"
+                                android:textAllCaps="false"
+                                android:textColor="@color/text_primary" />
+
+                            <Space
+                                android:layout_width="12dp"
+                                android:layout_height="wrap_content" />
+
+                            <Button
+                                android:id="@+id/btnGuideFaq"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:background="@drawable/bg_button_ghost"
+                                android:minHeight="52dp"
+                                android:paddingLeft="18dp"
+                                android:paddingTop="12dp"
+                                android:paddingRight="18dp"
+                                android:paddingBottom="12dp"
+                                android:text="@string/home_action_full_faq"
+                                android:textAllCaps="false"
+                                android:textColor="@color/text_primary" />
+                        </LinearLayout>
                     </LinearLayout>
 
-                    <Space
-                        android:layout_width="12dp"
-                        android:layout_height="wrap_content" />
-
-                    <Button
-                        android:id="@+id/btnGuideFixForm"
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:id="@+id/panelGuidePrecheck"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:minHeight="0dp"
-                        android:text="@string/home_action_fix_form"
-                        android:textAllCaps="false" />
-
-                    <Space
-                        android:layout_width="10dp"
-                        android:layout_height="wrap_content" />
-
-                    <Button
-                        android:id="@+id/btnGuideFaq"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:minHeight="0dp"
-                        android:text="@string/home_action_full_faq"
-                        android:textAllCaps="false" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/panelGuidePrecheck"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:background="#22000000"
-                    android:orientation="vertical"
-                    android:padding="12dp"
-                    android:visibility="gone">
+                        android:layout_marginTop="12dp"
+                        android:background="@drawable/bg_panel"
+                        android:orientation="vertical"
+                        android:padding="12dp"
+                        android:visibility="gone">
 
                     <CheckBox
                         android:id="@+id/checkboxGuideMultipleAccounts"
@@ -199,96 +229,155 @@
                         android:text="@string/guide_check_unlock_code" />
                 </LinearLayout>
 
-                <LinearLayout
-                    android:id="@+id/panelGuidePair"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:background="#22000000"
-                    android:orientation="vertical"
-                    android:padding="12dp"
-                    android:visibility="gone">
+                    <LinearLayout
+                        android:id="@+id/panelGuidePair"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:background="@drawable/bg_panel"
+                        android:orientation="vertical"
+                        android:padding="12dp"
+                        android:visibility="gone">
 
                     <EditText
                         android:id="@+id/inputGuidePairingCode"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:background="@drawable/bg_input"
                         android:hint="@string/hint_pairing_code"
+                        android:imeOptions="actionDone"
                         android:inputType="number"
                         android:maxLength="6"
-                        android:singleLine="true" />
+                        android:padding="12dp"
+                        android:singleLine="true"
+                        android:textColor="@color/text_primary"
+                        android:textColorHint="@color/text_muted" />
 
-                    <EditText
-                        android:id="@+id/inputGuidePairingPort"
+                    <TextView
+                        android:id="@+id/txtGuidePairSummary"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:hint="@string/hint_pairing_port"
-                        android:inputType="number"
-                        android:singleLine="true" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/panelGuideConnect"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:background="#22000000"
-                    android:orientation="vertical"
-                    android:padding="12dp"
-                    android:visibility="gone">
-
-                    <EditText
-                        android:id="@+id/inputGuideDebugPort"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:hint="@string/hint_debug_port"
-                        android:inputType="number"
-                        android:singleLine="true" />
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp" />
 
                     <Button
-                        android:id="@+id/btnGuideDetectPort"
+                        android:id="@+id/btnGuideChangeDetails"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="@string/action_detect_debug_port"
-                        android:textAllCaps="false" />
+                        android:background="@drawable/bg_button_ghost"
+                        android:text="@string/action_change_details"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary" />
+
+                    <LinearLayout
+                        android:id="@+id/panelGuidePairDetails"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+
+                        <EditText
+                            android:id="@+id/inputGuidePairingPort"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/bg_input"
+                            android:hint="@string/hint_pairing_port"
+                            android:inputType="number"
+                            android:padding="12dp"
+                            android:singleLine="true"
+                            android:textColor="@color/text_primary"
+                            android:textColorHint="@color/text_muted" />
+
+                        <Button
+                            android:id="@+id/btnGuideDetectPairingPort"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:background="@drawable/bg_button_secondary"
+                            android:text="@string/action_detect_pairing_port"
+                            android:textAllCaps="false"
+                            android:textColor="@color/text_primary" />
+
+                        <EditText
+                            android:id="@+id/inputGuideDebugPort"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:background="@drawable/bg_input"
+                            android:hint="@string/hint_debug_port"
+                            android:inputType="number"
+                            android:padding="12dp"
+                            android:singleLine="true"
+                            android:textColor="@color/text_primary"
+                            android:textColorHint="@color/text_muted" />
+
+                        <Button
+                            android:id="@+id/btnGuideDetectPort"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:background="@drawable/bg_button_secondary"
+                            android:text="@string/action_detect_debug_port"
+                            android:textAllCaps="false"
+                            android:textColor="@color/text_primary" />
+                    </LinearLayout>
                 </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/panelGuideConnect"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:background="@drawable/bg_panel"
+                        android:orientation="vertical"
+                        android:padding="12dp"
+                        android:visibility="gone">
+                    </LinearLayout>
+
+                    <Button
+                        android:id="@+id/btnGuidePrimary"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:background="@drawable/bg_button_primary"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary" />
+                </LinearLayout>
+            </ScrollView>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="horizontal">
 
                 <Button
-                    android:id="@+id/btnGuidePrimary"
-                    android:layout_width="match_parent"
+                    android:id="@+id/btnGuideBack"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:textAllCaps="false" />
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_button_ghost"
+                    android:text="@string/guide_action_back"
+                    android:textAllCaps="false"
+                    android:textColor="@color/text_primary" />
 
-                <LinearLayout
-                    android:layout_width="match_parent"
+                <Space
+                    android:layout_width="10dp"
+                    android:layout_height="wrap_content" />
+
+                <Button
+                    android:id="@+id/btnGuideNext"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:orientation="horizontal">
-
-                    <Button
-                        android:id="@+id/btnGuideBack"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/guide_action_back"
-                        android:textAllCaps="false" />
-
-                    <Space
-                        android:layout_width="10dp"
-                        android:layout_height="wrap_content" />
-
-                    <Button
-                        android:id="@+id/btnGuideNext"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/guide_action_next"
-                        android:textAllCaps="false" />
-                </LinearLayout>
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_button_secondary"
+                    android:text="@string/guide_action_next"
+                    android:textAllCaps="false"
+                    android:textColor="@color/text_primary" />
             </LinearLayout>
-        </ScrollView>
+        </LinearLayout>
     </LinearLayout>
 </LinearLayout>

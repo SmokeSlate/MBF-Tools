@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_app_gradient"
+    android:orientation="vertical"
+    android:padding="14dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_panel"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:minHeight="56dp"
+        android:paddingLeft="12dp"
+        android:paddingTop="10dp"
+        android:paddingRight="12dp"
+        android:paddingBottom="10dp">
+
+        <Button
+            android:id="@+id/btnBrowserBack"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_button_secondary"
+            android:minHeight="0dp"
+            android:minWidth="0dp"
+            android:paddingLeft="12dp"
+            android:paddingTop="6dp"
+            android:paddingRight="12dp"
+            android:paddingBottom="6dp"
+            android:text="@string/browser_back"
+            android:textAllCaps="false"
+            android:textColor="@color/text_primary" />
+
+        <TextView
+            android:id="@+id/txtBrowserTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/browser_loading"
+            android:textColor="@color/text_primary"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="10dp"
+        android:layout_weight="1"
+        android:background="@drawable/bg_panel_secondary"
+        android:padding="2dp">
+
+        <android.webkit.WebView
+            android:id="@+id/webBrowser"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+    </FrameLayout>
+</LinearLayout>

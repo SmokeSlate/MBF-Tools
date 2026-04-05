@@ -32,3 +32,5 @@ captures/
 # OS files
 .DS_Store
 Thumbs.db
+# app/signing.properties
+# keystore/mbftools-release.jks

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg_app_top">#08111F</color>
+    <color name="bg_app_bottom">#13335B</color>
+    <color name="surface_primary">#CC0F1B2D</color>
+    <color name="surface_secondary">#B3172742</color>
+    <color name="surface_overlay">#661D3357</color>
+    <color name="surface_border">#4D78D1FF</color>
+    <color name="brand_red">#F24E5E</color>
+    <color name="brand_blue">#4CB2FF</color>
+    <color name="brand_blue_deep">#194D82</color>
+    <color name="brand_blue_muted">#274B6F</color>
+    <color name="brand_ink">#08111A</color>
+    <color name="text_primary">#F6FBFF</color>
+    <color name="text_secondary">#BCD1E8</color>
+    <color name="text_muted">#90A9C5</color>
+    <color name="success_chip_bg">#2234D399</color>
+    <color name="success_chip_text">#7DF0C8</color>
+    <color name="warning_chip_bg">#2EF24E5E</color>
+    <color name="warning_chip_text">#FFD6DB</color>
+    <color name="input_bg">#73111D2E</color>
+    <color name="input_stroke">#6678D1FF</color>
+</resources>
