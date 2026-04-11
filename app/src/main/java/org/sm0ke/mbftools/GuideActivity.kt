@@ -55,6 +55,7 @@ class GuideActivity : ComponentActivity() {
     private lateinit var detectPortButton: Button
     private lateinit var openFixFormButton: Button
     private lateinit var openFaqButton: Button
+    private lateinit var shareDebugLogsButton: Button
 
     @Volatile private var connectedDeviceName: String? = null
 
@@ -144,6 +145,7 @@ class GuideActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AppLog.init(this)
         setContentView(R.layout.activity_guide)
 
         stepCounter = findViewById(R.id.txtStepCounter)
@@ -170,6 +172,7 @@ class GuideActivity : ComponentActivity() {
         detectPortButton = findViewById(R.id.btnGuideDetectPort)
         openFixFormButton = findViewById(R.id.btnGuideFixForm)
         openFaqButton = findViewById(R.id.btnGuideFaq)
+        shareDebugLogsButton = findViewById(R.id.btnGuideShareDebugLogs)
 
         pairingPortInput.setText(AppPrefs.getPairingPort(this))
         debugPortInput.setText(AppPrefs.getDebugPort(this))
@@ -207,6 +210,9 @@ class GuideActivity : ComponentActivity() {
         detectPortButton.setOnClickListener { detectDebugPort() }
         openFixFormButton.setOnClickListener { openUrl(FIX_FORM_URL) }
         openFaqButton.setOnClickListener { openUrl(FAQ_PAGE_URL) }
+        shareDebugLogsButton.setOnClickListener {
+            DebugShareHelper.share(this, "Guide", onBusyChanged = ::setBusy)
+        }
 
         backButton.setOnClickListener { goBackOneStep() }
 
@@ -254,6 +260,8 @@ class GuideActivity : ComponentActivity() {
 
     private fun renderStep() {
         val step = steps[stepIndex]
+        AppPrefs.setCurrentGuideStep(this, getString(step.titleRes))
+        AppLog.info("Guide", "Showing step ${stepIndex + 1}/${steps.size}: ${getString(step.titleRes)}")
         stepCounter.text = getString(R.string.guide_step_counter, stepIndex + 1, steps.size)
         stepTitle.setText(step.titleRes)
         stepBody.setText(step.bodyRes)
@@ -288,10 +296,12 @@ class GuideActivity : ComponentActivity() {
     }
 
     private fun openAdvanced() {
+        AppLog.info("Guide", "Opening advanced setup screen.")
         startActivity(Intent(this, MainActivity::class.java))
     }
 
     private fun openUrl(url: String) {
+        AppLog.info("Guide", "Opening support page: $url")
         startActivity(
                 Intent(this, BrowserActivity::class.java).putExtra(BrowserActivity.EXTRA_URL, url)
         )
@@ -352,11 +362,20 @@ class GuideActivity : ComponentActivity() {
     private fun pairDevice() {
         val pairingCode = pairingCodeInput.text.toString().trim()
         if (pairingCode.length != 6) {
+            AppLog.warn("Guide", "Pairing blocked because the entered pairing code was invalid.")
             toast(getString(R.string.toast_invalid_pairing))
             return
         }
 
         val enteredPairingPort = pairingPortInput.text.toString().trim().toIntOrNull()
+        AppLog.info(
+                "Guide",
+                if (enteredPairingPort != null) {
+                    "Pairing requested with entered pairing port $enteredPairingPort."
+                } else {
+                    "Pairing requested without a pairing port. Auto-detecting pairing port first."
+                }
+        )
         setBusy(true)
         worker.execute {
             val pairingPort =
@@ -392,13 +411,18 @@ class GuideActivity : ComponentActivity() {
                         0
                     }
 
-            val connectResult =
+            val connectAttempt =
                     if (detectedDebugPort > 0) {
-                        AppPrefs.setDebugPort(this, detectedDebugPort.toString())
-                        runCatching { AdbManager.connect(this, detectedDebugPort) }
+                        connectWithRecoveredDebugPort(detectedDebugPort)
                     } else {
-                        Result.failure(
-                                IllegalArgumentException(getString(R.string.toast_connect_failed))
+                        GuideConnectAttempt(
+                                finalPort = 0,
+                                result =
+                                        Result.failure(
+                                                IllegalArgumentException(
+                                                        getString(R.string.toast_connect_failed)
+                                                )
+                                        )
                         )
                     }
 
@@ -406,23 +430,23 @@ class GuideActivity : ComponentActivity() {
                 setBusy(false)
                 if (enteredPairingPort == null && pairingPort > 0) {
                     autofillPairingPort(pairingPort)
+                    AppLog.info("Guide", "Detected pairing port $pairingPort during pair flow.")
                     toast(getString(R.string.toast_pairing_port_detected, pairingPort))
                 }
-                if (detectedDebugPort > 0) {
-                    autofillDebugPort(detectedDebugPort, force = true)
+                if (connectAttempt.finalPort > 0) {
+                    autofillDebugPort(connectAttempt.finalPort, force = true)
+                    AppLog.info(
+                            "Guide",
+                            "Using wireless debug port ${connectAttempt.finalPort} after pairing."
+                    )
                 }
                 pairResult
                         .onSuccess { command ->
                             if (command.exitCode == 0 &&
                                             !command.stdout.startsWith("Failed:", ignoreCase = true)
                             ) {
-                                connectResult.onSuccess { connectCommand ->
-                                    if (connectCommand.exitCode == 0 &&
-                                                    connectCommand.stdout.contains(
-                                                            "connected",
-                                                            ignoreCase = true
-                                                    )
-                                    ) {
+                                connectAttempt.result.onSuccess { connectCommand ->
+                                    if (isSuccessfulConnect(connectCommand)) {
                                         connectedDeviceName =
                                                 AdbManager.getAuthorizedDevices(this)
                                                         .firstOrNull()
@@ -434,6 +458,10 @@ class GuideActivity : ComponentActivity() {
                                             )
                                         }
                                         AppPrefs.setSetupComplete(this, true)
+                                        AppLog.info(
+                                                "Guide",
+                                                "Pairing and connection succeeded${connectedDeviceName?.let { " for $it" } ?: ""}."
+                                        )
                                         pairDetailsExpanded = false
                                         updatePairSummary()
                                         updatePairDetailVisibility()
@@ -444,6 +472,10 @@ class GuideActivity : ComponentActivity() {
                                         }
                                         refreshGuideState()
                                     } else {
+                                        AppLog.warn(
+                                                "Guide",
+                                                "Pairing succeeded but ADB connect failed: ${connectCommand.bestMessage(getString(R.string.toast_connect_failed))}"
+                                        )
                                         toast(
                                                 connectCommand.bestMessage(
                                                         getString(R.string.toast_connect_failed)
@@ -451,14 +483,28 @@ class GuideActivity : ComponentActivity() {
                                         )
                                     }
                                 }
-                                connectResult.onFailure {
+                                connectAttempt.result.onFailure {
+                                    AppLog.error(
+                                            "Guide",
+                                            "Pairing succeeded but connect threw an error: ${it.message ?: getString(R.string.toast_connect_failed)}"
+                                    )
                                     toast(it.message ?: getString(R.string.toast_connect_failed))
                                 }
                             } else {
+                                AppLog.warn(
+                                        "Guide",
+                                        "Pairing failed: ${command.bestMessage(getString(R.string.toast_pair_failed))}"
+                                )
                                 toast(command.bestMessage(getString(R.string.toast_pair_failed)))
                             }
                         }
-                        .onFailure { toast(it.message ?: getString(R.string.toast_pair_failed)) }
+                        .onFailure {
+                            AppLog.error(
+                                    "Guide",
+                                    "Pairing threw an error: ${it.message ?: getString(R.string.toast_pair_failed)}"
+                            )
+                            toast(it.message ?: getString(R.string.toast_pair_failed))
+                        }
             }
         }
     }
@@ -468,6 +514,7 @@ class GuideActivity : ComponentActivity() {
     }
 
     private fun detectPairingPort() {
+        AppLog.info("Guide", "Manual pairing-port detection requested.")
         setBusy(true)
         worker.execute {
             val port = runCatching { AdbManager.detectPairingPort(this) }.getOrDefault(0)
@@ -476,8 +523,10 @@ class GuideActivity : ComponentActivity() {
                 if (port > 0) {
                     autofillPairingPort(port)
                     updatePairSummary()
+                    AppLog.info("Guide", "Detected pairing port $port.")
                     toast(getString(R.string.toast_pairing_port_detected, port))
                 } else {
+                    AppLog.warn("Guide", "Pairing-port detection did not find a port.")
                     toast(getString(R.string.toast_pairing_port_missing))
                 }
             }
@@ -485,6 +534,7 @@ class GuideActivity : ComponentActivity() {
     }
 
     private fun detectDebugPort(showToast: Boolean) {
+        AppLog.info("Guide", "Wireless debug-port detection requested.")
         setBusy(true)
         worker.execute {
             val port = runCatching { AdbManager.detectDebugPort(this) }.getOrDefault(0)
@@ -493,14 +543,41 @@ class GuideActivity : ComponentActivity() {
                 if (port > 0) {
                     autofillDebugPort(port, force = true)
                     updatePairSummary()
+                    AppLog.info("Guide", "Detected wireless debug port $port.")
                     if (showToast) {
                         toast(getString(R.string.toast_debug_port_detected, port))
                     }
                 } else if (showToast) {
+                    AppLog.warn("Guide", "Wireless debug-port detection did not find a port.")
                     toast(getString(R.string.toast_debug_port_missing))
                 }
             }
         }
+    }
+
+    private fun connectWithRecoveredDebugPort(initialPort: Int): GuideConnectAttempt {
+        AppPrefs.setDebugPort(this, initialPort.toString())
+        val initialResult = runCatching { AdbManager.connect(this, initialPort) }
+        if (initialResult.isSuccess && isSuccessfulConnect(initialResult.getOrThrow())) {
+            return GuideConnectAttempt(finalPort = initialPort, result = initialResult)
+        }
+
+        val redetectedPort = runCatching { AdbManager.detectDebugPort(this) }.getOrDefault(0)
+        if (redetectedPort <= 0) {
+            return GuideConnectAttempt(finalPort = initialPort, result = initialResult)
+        }
+
+        AppPrefs.setDebugPort(this, redetectedPort.toString())
+        val retryResult = runCatching { AdbManager.connect(this, redetectedPort) }
+        return GuideConnectAttempt(
+                finalPort = redetectedPort,
+                result = retryResult,
+                redetectedPort = redetectedPort
+        )
+    }
+
+    private fun isSuccessfulConnect(command: AdbCommandResult): Boolean {
+        return command.exitCode == 0 && command.stdout.contains("connected", ignoreCase = true)
     }
 
     private fun autoDetectDebugPortIfNeeded() {
@@ -516,11 +593,13 @@ class GuideActivity : ComponentActivity() {
     private fun launchIntegratedMbf() {
         val device = connectedDeviceName
         if (device == null) {
+            AppLog.warn("Guide", "Launch MBF blocked because no headset is connected.")
             toast(getString(R.string.toast_connect_first))
             refreshGuideState()
             return
         }
 
+        AppLog.info("Guide", "Launching MBF from the guide.")
         setBusy(true)
         worker.execute {
             runCatching { AdbManager.grantSelfPermissions(this, device) }
@@ -533,12 +612,19 @@ class GuideActivity : ComponentActivity() {
                 setBusy(false)
                 browserUrl
                         .onSuccess { url ->
+                            AppLog.info("Guide", "MBF browser launched successfully.")
                             startActivity(
                                     Intent(this, BrowserActivity::class.java)
                                             .putExtra(BrowserActivity.EXTRA_URL, url)
                             )
                         }
-                        .onFailure { toast(it.message ?: getString(R.string.toast_launch_failed)) }
+                        .onFailure {
+                            AppLog.error(
+                                    "Guide",
+                                    "Failed to launch MBF: ${it.message ?: getString(R.string.toast_launch_failed)}"
+                            )
+                            toast(it.message ?: getString(R.string.toast_launch_failed))
+                        }
             }
         }
     }
@@ -547,6 +633,7 @@ class GuideActivity : ComponentActivity() {
         primaryButton.isEnabled = !isBusy
         detectPairingPortButton.isEnabled = !isBusy
         detectPortButton.isEnabled = !isBusy
+        shareDebugLogsButton.isEnabled = !isBusy
         nextButton.isEnabled = !isBusy && isNextStepAvailable()
         backButton.isEnabled = !isBusy && stepIndex > 0
     }
@@ -833,7 +920,13 @@ private data class GuideStep(
         val imageRes: Int?,
         val primaryLabelRes: Int?,
         val panel: GuidePanel,
-        val primaryAction: (() -> Unit)?
+    val primaryAction: (() -> Unit)?
+)
+
+private data class GuideConnectAttempt(
+        val finalPort: Int,
+        val result: Result<AdbCommandResult>,
+        val redetectedPort: Int? = null
 )
 
 private enum class GuidePanel {

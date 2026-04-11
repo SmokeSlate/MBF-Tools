@@ -8,6 +8,7 @@ object AppPrefs {
     private const val KEY_DEBUG_PORT = "debug_port"
     private const val KEY_GAME_ID = "game_id"
     private const val KEY_SETUP_COMPLETE = "setup_complete"
+    private const val KEY_CURRENT_GUIDE_STEP = "current_guide_step"
 
     private fun prefs(context: Context) =
             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -43,6 +44,17 @@ object AppPrefs {
 
     fun setSetupComplete(context: Context, value: Boolean) {
         prefs(context).edit().putBoolean(KEY_SETUP_COMPLETE, value).apply()
+    }
+
+    fun getCurrentGuideStep(context: Context): String =
+            prefs(context).getString(KEY_CURRENT_GUIDE_STEP, "") ?: ""
+
+    fun setCurrentGuideStep(context: Context, value: String) {
+        prefs(context).edit().putString(KEY_CURRENT_GUIDE_STEP, value).apply()
+    }
+
+    fun clearCurrentGuideStep(context: Context) {
+        prefs(context).edit().remove(KEY_CURRENT_GUIDE_STEP).apply()
     }
 
     fun reset(context: Context) {

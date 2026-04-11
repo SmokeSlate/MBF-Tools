@@ -36,11 +36,16 @@ class HomeActivity : ComponentActivity() {
     private lateinit var openFaqButton: Button
     private lateinit var openGuideButton: Button
     private lateinit var openAdvancedButton: Button
+    private lateinit var shareDebugLogsButton: Button
 
     @Volatile private var connectedDeviceName: String? = null
+    @Volatile private var autoReconnectAttempted = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AppLog.init(this)
+        AppPrefs.clearCurrentGuideStep(this)
+        AppLog.info("Home", "Home screen opened.")
         setContentView(R.layout.activity_home)
 
         homeStatus = findViewById(R.id.txtHomeStatus)
@@ -52,6 +57,7 @@ class HomeActivity : ComponentActivity() {
         openFaqButton = findViewById(R.id.btnHomeFaq)
         openGuideButton = findViewById(R.id.btnHomeGuide)
         openAdvancedButton = findViewById(R.id.btnHomeAdvanced)
+        shareDebugLogsButton = findViewById(R.id.btnHomeShareDebugLogs)
 
         launchMbfButton.setOnClickListener { launchIntegratedMbf() }
         openFixButton.setOnClickListener { openUrl(FIX_FORM_URL) }
@@ -62,12 +68,23 @@ class HomeActivity : ComponentActivity() {
         openAdvancedButton.setOnClickListener {
             startActivity(Intent(this, MainActivity::class.java))
         }
+        shareDebugLogsButton.setOnClickListener {
+            DebugShareHelper.share(
+                    activity = this,
+                    sourceTag = "Home",
+                    onBusyChanged = { busy -> setActionButtonsEnabled(!busy) }
+            )
+        }
 
         loadFaq()
     }
 
     override fun onResume() {
         super.onResume()
+        if (redirectToWirelessRequiredIfNeeded()) {
+            return
+        }
+        autoReconnectAttempted = false
         refreshState()
         startPolling()
     }
@@ -94,13 +111,44 @@ class HomeActivity : ComponentActivity() {
 
     private fun refreshState() {
         worker.execute {
-            val device =
+            val setupComplete = AppPrefs.isSetupComplete(this)
+            var device =
                     runCatching { AdbManager.getAuthorizedDevices(this).firstOrNull() }.getOrNull()
             connectedDeviceName = device?.name
             val devMode = SetupState.isDeveloperModeEnabled(this)
             val wireless = SetupState.isWirelessDebuggingEnabled(this)
 
+            if (device == null && setupComplete && !autoReconnectAttempted) {
+                autoReconnectAttempted = true
+                AppLog.info(
+                        "Home",
+                        "No authorized headset found on open. Re-detecting wireless debug port."
+                )
+                val reconnectResult = autoReconnectAfterSetup()
+                if (reconnectResult.connectedDeviceName != null) {
+                    device = AdbDevice(reconnectResult.connectedDeviceName, true)
+                    connectedDeviceName = reconnectResult.connectedDeviceName
+                    AppLog.info(
+                            "Home",
+                            "Post-setup reconnect succeeded on port ${reconnectResult.debugPort} for ${reconnectResult.connectedDeviceName}."
+                    )
+                } else if (reconnectResult.debugPort > 0) {
+                    AppLog.warn(
+                            "Home",
+                            "Detected wireless debug port ${reconnectResult.debugPort}, but reconnect did not authorize a device."
+                    )
+                } else {
+                    AppLog.warn(
+                            "Home",
+                            "Post-setup reconnect could not detect a usable wireless debug port."
+                    )
+                }
+            }
+
             runOnUiThread {
+                if (redirectToWirelessRequiredIfNeeded()) {
+                    return@runOnUiThread
+                }
                 val connected = connectedDeviceName != null
                 homeStatus.text =
                         if (connected) {
@@ -121,8 +169,74 @@ class HomeActivity : ComponentActivity() {
                             )
                         }
                 launchMbfButton.isEnabled = connected
+                shareDebugLogsButton.isEnabled = true
             }
         }
+    }
+
+    private fun redirectToWirelessRequiredIfNeeded(): Boolean {
+        if (!AppPrefs.isSetupComplete(this)) {
+            return false
+        }
+        if (SetupState.isWirelessDebuggingEnabled(this)) {
+            return false
+        }
+        AppLog.warn("Home", "Wireless Debugging is disabled after setup. Redirecting to blocker screen.")
+        startActivity(Intent(this, WirelessDebugRequiredActivity::class.java))
+        finish()
+        return true
+    }
+
+    private fun autoReconnectAfterSetup(): HomeReconnectResult {
+        val savedDebugPort = AppPrefs.getDebugPort(this).trim().toIntOrNull()
+        val initialPort = savedDebugPort ?: runCatching { AdbManager.detectDebugPort(this) }.getOrDefault(0)
+        if (initialPort <= 0) {
+            return HomeReconnectResult()
+        }
+
+        val connectAttempt = connectWithRecoveredDebugPort(initialPort)
+        if (connectAttempt.finalPort > 0) {
+            AppPrefs.setDebugPort(this, connectAttempt.finalPort.toString())
+        }
+
+        val command = connectAttempt.result.getOrNull()
+        if (command != null && isSuccessfulConnect(command)) {
+            val deviceName = runCatching { AdbManager.getAuthorizedDevices(this).firstOrNull()?.name }.getOrNull()
+            if (deviceName != null) {
+                runCatching { AdbManager.grantSelfPermissions(this, deviceName) }
+                return HomeReconnectResult(
+                        debugPort = connectAttempt.finalPort,
+                        connectedDeviceName = deviceName
+                )
+            }
+        }
+
+        return HomeReconnectResult(debugPort = connectAttempt.finalPort)
+    }
+
+    private fun connectWithRecoveredDebugPort(initialPort: Int): HomeReconnectAttempt {
+        AppPrefs.setDebugPort(this, initialPort.toString())
+        val initialResult = runCatching { AdbManager.connect(this, initialPort) }
+        if (initialResult.isSuccess && isSuccessfulConnect(initialResult.getOrThrow())) {
+            return HomeReconnectAttempt(finalPort = initialPort, result = initialResult)
+        }
+
+        val redetectedPort = runCatching { AdbManager.detectDebugPort(this) }.getOrDefault(0)
+        if (redetectedPort <= 0) {
+            return HomeReconnectAttempt(finalPort = initialPort, result = initialResult)
+        }
+
+        AppPrefs.setDebugPort(this, redetectedPort.toString())
+        val retryResult = runCatching { AdbManager.connect(this, redetectedPort) }
+        return HomeReconnectAttempt(
+                finalPort = redetectedPort,
+                result = retryResult,
+                redetectedPort = redetectedPort
+        )
+    }
+
+    private fun isSuccessfulConnect(command: AdbCommandResult): Boolean {
+        return command.exitCode == 0 && command.stdout.contains("connected", ignoreCase = true)
     }
 
     private fun loadFaq() {
@@ -132,10 +246,15 @@ class HomeActivity : ComponentActivity() {
             runOnUiThread {
                 result
                         .onSuccess { items ->
+                            AppLog.info("Home", "Loaded ${items.size} FAQ entries from the wiki.")
                             faqStatus.text = getString(R.string.home_faq_live)
                             renderFaq(items)
                         }
                         .onFailure {
+                            AppLog.warn(
+                                    "Home",
+                                    "Failed to load live FAQ: ${it.message ?: "unknown error"}"
+                            )
                             faqStatus.text = getString(R.string.home_faq_failed)
                             faqContainer.removeAllViews()
                         }
@@ -192,10 +311,12 @@ class HomeActivity : ComponentActivity() {
     private fun launchIntegratedMbf() {
         val device = connectedDeviceName
         if (device == null) {
+            AppLog.warn("Home", "Launch MBF blocked because no headset is connected.")
             toast(getString(R.string.toast_connect_first))
             return
         }
 
+        AppLog.info("Home", "Launching MBF from the home screen.")
         worker.execute {
             runCatching { AdbManager.grantSelfPermissions(this, device) }
             val browserUrl = runCatching {
@@ -206,17 +327,25 @@ class HomeActivity : ComponentActivity() {
             runOnUiThread {
                 browserUrl
                         .onSuccess { url ->
+                            AppLog.info("Home", "MBF browser launched successfully.")
                             startActivity(
                                     Intent(this, BrowserActivity::class.java)
                                             .putExtra(BrowserActivity.EXTRA_URL, url)
                             )
                         }
-                        .onFailure { toast(it.message ?: getString(R.string.toast_launch_failed)) }
+                        .onFailure {
+                            AppLog.error(
+                                    "Home",
+                                    "Failed to launch MBF: ${it.message ?: getString(R.string.toast_launch_failed)}"
+                            )
+                            toast(it.message ?: getString(R.string.toast_launch_failed))
+                        }
             }
         }
     }
 
     private fun openUrl(url: String) {
+        AppLog.info("Home", "Opening support page: $url")
         startActivity(
                 Intent(this, BrowserActivity::class.java).putExtra(BrowserActivity.EXTRA_URL, url)
         )
@@ -245,6 +374,15 @@ class HomeActivity : ComponentActivity() {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
+    private fun setActionButtonsEnabled(enabled: Boolean) {
+        launchMbfButton.isEnabled = enabled && connectedDeviceName != null
+        openFixButton.isEnabled = enabled
+        openFaqButton.isEnabled = enabled
+        openGuideButton.isEnabled = enabled
+        openAdvancedButton.isEnabled = enabled
+        shareDebugLogsButton.isEnabled = enabled
+    }
+
     companion object {
         private const val MBF_APP_URL = "https://dantheman827.github.io/ModsBeforeFriday/"
         private const val FIX_FORM_URL = "https://wiki.sm0ke.org/fix"
@@ -252,3 +390,14 @@ class HomeActivity : ComponentActivity() {
         private const val POLL_INTERVAL_MS = 3_000L
     }
 }
+
+private data class HomeReconnectAttempt(
+        val finalPort: Int,
+        val result: Result<AdbCommandResult>,
+        val redetectedPort: Int? = null
+)
+
+private data class HomeReconnectResult(
+        val debugPort: Int = 0,
+        val connectedDeviceName: String? = null
+)
