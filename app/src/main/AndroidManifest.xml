@@ -8,6 +8,7 @@
 
     <queries>
         <package android:name="com.android.settings" />
+        <package android:name="com.beatgames.beatsaber" />
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="https" />
@@ -30,6 +31,10 @@
         </activity>
         <activity
             android:name=".HomeActivity"
+            android:exported="false"
+            android:screenOrientation="landscape" />
+        <activity
+            android:name=".WirelessDebugRequiredActivity"
             android:exported="false"
             android:screenOrientation="landscape" />
         <activity

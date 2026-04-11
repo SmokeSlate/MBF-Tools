@@ -41,11 +41,13 @@ class MainActivity : ComponentActivity() {
     private lateinit var launchMbfButton: Button
     private lateinit var advancedLogView: TextView
     private lateinit var advancedLogScroll: ScrollView
+    private lateinit var shareDebugLogsButton: Button
 
     @Volatile private var connectedDeviceName: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AppLog.init(this)
         setContentView(R.layout.activity_main)
 
         recommendationText = findViewById(R.id.txtRecommendation)
@@ -60,6 +62,7 @@ class MainActivity : ComponentActivity() {
         launchMbfButton = findViewById(R.id.btnLaunchIntegratedMbf)
         advancedLogView = findViewById(R.id.txtAdvancedLog)
         advancedLogScroll = findViewById(R.id.scrollAdvancedLog)
+        shareDebugLogsButton = findViewById(R.id.btnShareDebugLogs)
 
         pairingPortInput.setText(AppPrefs.getPairingPort(this))
         debugPortInput.setText(AppPrefs.getDebugPort(this))
@@ -113,6 +116,9 @@ class MainActivity : ComponentActivity() {
         findViewById<Button>(R.id.btnResetSettings).setOnClickListener { showResetSettingsDialog() }
 
         launchMbfButton.setOnClickListener { launchIntegratedMbf() }
+        shareDebugLogsButton.setOnClickListener {
+            DebugShareHelper.share(activity = this, sourceTag = "Advanced", onBusyChanged = ::setBusy)
+        }
 
         appendLog("Advanced screen opened.")
         updateLogView()
@@ -316,18 +322,25 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        AppPrefs.setDebugPort(this, debugPort.toString())
         appendLog("Connecting to localhost:$debugPort.")
         setBusy(true)
         runAsync {
-            val result = runCatching { AdbManager.connect(this, debugPort) }
+            val connectAttempt = connectWithRecoveredDebugPort(debugPort)
             runOnUiThread {
                 setBusy(false)
-                result
+                if (connectAttempt.redetectedPort != null) {
+                    autofillDebugPort(connectAttempt.finalPort, force = true)
+                    appendLog(
+                            if (connectAttempt.finalPort != debugPort) {
+                                "Connection retry used re-detected wireless debug port ${connectAttempt.finalPort}."
+                            } else {
+                                "Connection retry re-checked wireless debug port ${connectAttempt.finalPort}."
+                            }
+                    )
+                }
+                connectAttempt.result
                         .onSuccess { command ->
-                            if (command.exitCode == 0 &&
-                                            command.stdout.contains("connected", ignoreCase = true)
-                            ) {
+                            if (isSuccessfulConnect(command)) {
                                 connectedDeviceName =
                                         AdbManager.getAuthorizedDevices(this).firstOrNull()?.name
                                 runCatching {
@@ -355,6 +368,31 @@ class MainActivity : ComponentActivity() {
                 updateLogView()
             }
         }
+    }
+
+    private fun connectWithRecoveredDebugPort(initialPort: Int): AdvancedConnectAttempt {
+        AppPrefs.setDebugPort(this, initialPort.toString())
+        val initialResult = runCatching { AdbManager.connect(this, initialPort) }
+        if (initialResult.isSuccess && isSuccessfulConnect(initialResult.getOrThrow())) {
+            return AdvancedConnectAttempt(finalPort = initialPort, result = initialResult)
+        }
+
+        val redetectedPort = runCatching { AdbManager.detectDebugPort(this) }.getOrDefault(0)
+        if (redetectedPort <= 0) {
+            return AdvancedConnectAttempt(finalPort = initialPort, result = initialResult)
+        }
+
+        AppPrefs.setDebugPort(this, redetectedPort.toString())
+        val retryResult = runCatching { AdbManager.connect(this, redetectedPort) }
+        return AdvancedConnectAttempt(
+                finalPort = redetectedPort,
+                result = retryResult,
+                redetectedPort = redetectedPort
+        )
+    }
+
+    private fun isSuccessfulConnect(command: AdbCommandResult): Boolean {
+        return command.exitCode == 0 && command.stdout.contains("connected", ignoreCase = true)
     }
 
     private fun launchIntegratedMbf() {
@@ -415,6 +453,10 @@ class MainActivity : ComponentActivity() {
         findViewById<Button>(R.id.btnDetectDebugPort).isEnabled = !isBusy
         findViewById<Button>(R.id.btnConnectDevice).isEnabled = !isBusy
         findViewById<Button>(R.id.btnRefreshConnection).isEnabled = !isBusy
+        findViewById<Button>(R.id.btnResetSettings).isEnabled = !isBusy
+        findViewById<Button>(R.id.btnOpenDeveloperSettings).isEnabled = !isBusy
+        findViewById<Button>(R.id.btnOpenSettings).isEnabled = !isBusy
+        shareDebugLogsButton.isEnabled = !isBusy
         launchMbfButton.isEnabled = !isBusy && connectedDeviceName != null
     }
 
@@ -643,8 +685,11 @@ class MainActivity : ComponentActivity() {
         return baseUrl + separator + params.joinToString("&")
     }
 
-    private fun autofillDebugPort(port: Int) {
-        if (port <= 0 || debugPortInput.text.toString().trim().toIntOrNull() != null) {
+    private fun autofillDebugPort(port: Int, force: Boolean = false) {
+        if (port <= 0) {
+            return
+        }
+        if (!force && debugPortInput.text.toString().trim().toIntOrNull() != null) {
             return
         }
         debugPortInput.setText(port.toString())
@@ -682,16 +727,33 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun appendLog(message: String) {
-        AppLog.append(message)
+        AppLog.info("Advanced", message)
         if (::advancedLogView.isInitialized) {
             runOnUiThread { updateLogView() }
         }
     }
 
     private fun updateLogView() {
+        val shouldStickToBottom =
+                isNearBottom(advancedLogScroll, LOG_AUTO_SCROLL_THRESHOLD_PX)
+        val previousScrollY = advancedLogScroll.scrollY
         val text = AppLog.text().ifBlank { getString(R.string.log_empty) }
         advancedLogView.text = text
-        advancedLogScroll.post { advancedLogScroll.fullScroll(android.view.View.FOCUS_DOWN) }
+        advancedLogScroll.post {
+            if (shouldStickToBottom) {
+                advancedLogScroll.fullScroll(android.view.View.FOCUS_DOWN)
+            } else {
+                val child = advancedLogScroll.getChildAt(0)
+                val maxScroll = (child?.height ?: 0) - advancedLogScroll.height
+                advancedLogScroll.scrollTo(0, previousScrollY.coerceIn(0, maxScroll.coerceAtLeast(0)))
+            }
+        }
+    }
+
+    private fun isNearBottom(scrollView: ScrollView, thresholdPx: Int): Boolean {
+        val child = scrollView.getChildAt(0) ?: return true
+        val distanceToBottom = child.bottom - (scrollView.scrollY + scrollView.height)
+        return distanceToBottom <= thresholdPx
     }
 
     private fun toast(message: String) {
@@ -706,5 +768,12 @@ class MainActivity : ComponentActivity() {
         private const val STATUS_OK_COLOR = 0xFF65D17A.toInt()
         private const val STATUS_WARN_COLOR = 0xFFFFB35C.toInt()
         private const val POLL_INTERVAL_MS = 3_000L
+        private const val LOG_AUTO_SCROLL_THRESHOLD_PX = 96
     }
 }
+
+private data class AdvancedConnectAttempt(
+        val finalPort: Int,
+        val result: Result<AdbCommandResult>,
+        val redetectedPort: Int? = null
+)

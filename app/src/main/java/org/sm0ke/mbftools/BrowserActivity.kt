@@ -19,6 +19,7 @@ class BrowserActivity : ComponentActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AppLog.init(this)
         setContentView(R.layout.activity_browser)
 
         webView = findViewById(R.id.webBrowser)
@@ -68,6 +69,7 @@ class BrowserActivity : ComponentActivity() {
         val url =
                 intent.getStringExtra(EXTRA_URL)
                         ?: throw IllegalStateException("Browser URL is required.")
+        AppLog.info("Browser", "Opening browser for $url")
         webView.loadUrl(url)
     }
 

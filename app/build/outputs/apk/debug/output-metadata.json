@@ -4,7 +4,7 @@
     "type": "APK",
     "kind": "Directory"
   },
-  "applicationId": "org.sm0ke.devtoolsopener",
+  "applicationId": "org.sm0ke.mbftools",
   "variantName": "debug",
   "elements": [
     {

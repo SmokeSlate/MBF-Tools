@@ -1,0 +1,18 @@
+{
+  "name": "mbf-tools-logs-api",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Google Apps Script backend for MBF Tools and Setup debug log sharing.",
+  "scripts": {
+    "login": "clasp login",
+    "push": "clasp push",
+    "pull": "clasp pull",
+    "open": "clasp open",
+    "deploy": "clasp deploy",
+    "versions": "clasp versions",
+    "logs": "clasp logs --watch"
+  },
+  "devDependencies": {
+    "@google/clasp": "^2.5.0"
+  }
+}

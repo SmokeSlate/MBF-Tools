@@ -9,6 +9,7 @@ import android.net.nsd.NsdServiceInfo
 import android.provider.Settings
 import java.io.File
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -28,8 +29,10 @@ object AdbManager {
     private const val PAIRING_DISCOVERY_TIMEOUT_MS = 3_500L
     private const val DEBUG_PORT_ATTEMPTS = 8
     private const val DEBUG_PORT_DELAY_MS = 500L
+    private const val ADB_COMMAND_TIMEOUT_MS = 15_000L
 
     @Volatile private var serverProcess: Process? = null
+    private val streamReaderPool = Executors.newCachedThreadPool()
 
     @Synchronized
     private fun ensureServer(context: Context) {
@@ -90,6 +93,49 @@ object AdbManager {
 
     fun connect(context: Context, port: Int): AdbCommandResult {
         return runAdbCommand(context, listOf("connect", "127.0.0.1:$port"))
+    }
+
+    fun shell(
+            context: Context,
+            deviceName: String?,
+            command: String,
+            timeoutMs: Long = ADB_COMMAND_TIMEOUT_MS
+    ): AdbCommandResult {
+        return runShellCommand(
+                context = context,
+                deviceName = deviceName,
+                command = listOf("sh", "-c", command),
+                timeoutMs = timeoutMs
+        )
+    }
+
+    fun shellArgs(
+            context: Context,
+            deviceName: String?,
+            command: List<String>,
+            timeoutMs: Long = ADB_COMMAND_TIMEOUT_MS
+    ): AdbCommandResult {
+        return runShellCommand(
+                context = context,
+                deviceName = deviceName,
+                command = command,
+                timeoutMs = timeoutMs
+        )
+    }
+
+    fun logcat(
+            context: Context,
+            deviceName: String?,
+            lines: Int = 500,
+            timeoutMs: Long = ADB_COMMAND_TIMEOUT_MS
+    ): AdbCommandResult {
+        val args = mutableListOf<String>()
+        if (!deviceName.isNullOrBlank()) {
+            args.add("-s")
+            args.add(deviceName)
+        }
+        args.addAll(listOf("logcat", "-d", "-t", lines.toString()))
+        return runAdbCommand(context, args, timeoutMs)
     }
 
     fun detectPairingPort(context: Context): Int {
@@ -217,7 +263,8 @@ object AdbManager {
     private fun runShellCommand(
             context: Context,
             deviceName: String?,
-            command: List<String>
+            command: List<String>,
+            timeoutMs: Long = ADB_COMMAND_TIMEOUT_MS
     ): AdbCommandResult {
         val args = mutableListOf<String>()
         if (!deviceName.isNullOrBlank()) {
@@ -226,17 +273,41 @@ object AdbManager {
         }
         args.add("shell")
         args.addAll(command)
-        return runAdbCommand(context, args)
+        return runAdbCommand(context, args, timeoutMs)
     }
 
-    private fun runAdbCommand(context: Context, args: List<String>): AdbCommandResult {
+    private fun runAdbCommand(
+            context: Context,
+            args: List<String>,
+            timeoutMs: Long = ADB_COMMAND_TIMEOUT_MS
+    ): AdbCommandResult {
         ensureServer(context)
         val command = mutableListOf(adbPath(context), "-P", ADB_PORT.toString())
         command.addAll(args)
         val process = ProcessBuilder(command).start()
-        val stdout = process.inputStream.bufferedReader().readText()
-        val stderr = process.errorStream.bufferedReader().readText()
-        val exitCode = process.waitFor()
+        val stdoutFuture = streamReaderPool.submit<String> {
+            process.inputStream.bufferedReader().use { it.readText() }
+        }
+        val stderrFuture = streamReaderPool.submit<String> {
+            process.errorStream.bufferedReader().use { it.readText() }
+        }
+        val finished = process.waitFor(timeoutMs, TimeUnit.MILLISECONDS)
+        if (!finished) {
+            process.destroy()
+            if (!process.waitFor(500, TimeUnit.MILLISECONDS)) {
+                process.destroyForcibly()
+                process.waitFor(500, TimeUnit.MILLISECONDS)
+            }
+            val stdout = runCatching { stdoutFuture.get(1, TimeUnit.SECONDS) }.getOrDefault("")
+            val stderr =
+                    runCatching { stderrFuture.get(1, TimeUnit.SECONDS) }
+                            .getOrDefault("")
+                            .ifBlank { "adb command timed out after ${timeoutMs}ms." }
+            return AdbCommandResult(124, stdout, stderr)
+        }
+        val stdout = runCatching { stdoutFuture.get(1, TimeUnit.SECONDS) }.getOrDefault("")
+        val stderr = runCatching { stderrFuture.get(1, TimeUnit.SECONDS) }.getOrDefault("")
+        val exitCode = process.exitValue()
         return AdbCommandResult(exitCode, stdout, stderr)
     }
 

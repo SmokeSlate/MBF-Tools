@@ -409,6 +409,16 @@
             android:textColor="@color/text_secondary"
             android:textSize="15sp" />
 
+        <Button
+            android:id="@+id/btnShareDebugLogs"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_button_secondary"
+            android:text="@string/action_share_debug_logs"
+            android:textAllCaps="false"
+            android:textColor="@color/text_primary" />
+
         <ScrollView
             android:id="@+id/scrollAdvancedLog"
             android:layout_width="match_parent"

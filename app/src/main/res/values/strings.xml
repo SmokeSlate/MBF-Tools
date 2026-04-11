@@ -19,6 +19,13 @@
     <string name="home_faq_loading">Loading live FAQ from the wiki…</string>
     <string name="home_faq_live">Live FAQ from wiki.sm0ke.org</string>
     <string name="home_faq_failed">Could not load the live FAQ right now. You can still open the full FAQ page.</string>
+    <string name="wireless_required_title">Enable Wireless Debugging to continue</string>
+    <string name="wireless_required_body">Setup is already complete, but Wireless Debugging is currently off. Turn it back on before using MBF Tools and Setup.</string>
+    <string name="wireless_required_detail">Android dev mode: %1$s. Wireless Debugging is required and currently off.</string>
+    <string name="wireless_required_chip">Setup paused</string>
+    <string name="wireless_required_hint">The toggle shown on the left must be on before the app can continue to the support hub.</string>
+    <string name="wireless_required_image_caption">Developer options screenshot showing the Wireless Debugging toggle.</string>
+    <string name="wireless_required_action_retry">I enabled it</string>
     <string name="guide_header">Guided setup</string>
     <string name="guide_step_counter">Step %1$d of %2$d</string>
     <string name="guide_action_advanced_small">Advanced</string>
@@ -93,6 +100,7 @@
     <string name="action_detect_debug_port">Detect Debug Port</string>
     <string name="action_connect_device">Connect Device</string>
     <string name="action_refresh_connection">Refresh Connection</string>
+    <string name="action_share_debug_logs">Share Debug Logs</string>
     <string name="actions_heading">Quest shortcuts</string>
     <string name="action_back_to_guide">Back</string>
     <string name="action_open_developer_settings">Open Developer Settings</string>
@@ -119,4 +127,16 @@
     <string name="toast_connect_failed">Connection failed.</string>
     <string name="toast_connect_first">Connect the headset before launching MBF.</string>
     <string name="toast_launch_failed">Failed to start the integrated MBF bridge.</string>
+    <string name="toast_log_share_success">Debug logs shared.</string>
+    <string name="toast_log_share_failed">Debug log sharing failed.</string>
+    <string name="toast_command_copied">Debug share command copied.</string>
+    <string name="share_logs_loading_title">Exporting Logs</string>
+    <string name="share_logs_loading">Exporting logs. This can take a few seconds.</string>
+    <string name="share_logs_title">Debug Logs Shared</string>
+    <string name="share_logs_error_title">Debug Log Share Failed</string>
+    <string name="share_logs_copy_command">Copy Command</string>
+    <string name="share_logs_copy_error">Copy Error</string>
+    <string name="share_logs_close">Close</string>
+    <string name="share_logs_message">Logs exported, use command !s %1$s or go to https://logs.sm0ke.org/%1$s.\n\nContact Support:\nDiscord (recommended): https://d.sm0ke.org/\nSupport Chat: https://wiki.sm0ke.org/support</string>
+    <string name="share_logs_error_message">The log share request failed.\n\n%1$s</string>
 </resources>
