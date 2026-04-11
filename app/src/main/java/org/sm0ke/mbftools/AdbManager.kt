@@ -30,9 +30,13 @@ object AdbManager {
     private const val DEBUG_PORT_ATTEMPTS = 8
     private const val DEBUG_PORT_DELAY_MS = 500L
     private const val ADB_COMMAND_TIMEOUT_MS = 15_000L
+    private const val STREAM_READER_THREADS = 4
 
     @Volatile private var serverProcess: Process? = null
-    private val streamReaderPool = Executors.newCachedThreadPool()
+    private val streamReaderPool =
+            Executors.newFixedThreadPool(STREAM_READER_THREADS) { runnable ->
+                Thread(runnable, "adb-stream-reader").apply { isDaemon = true }
+            }
 
     @Synchronized
     private fun ensureServer(context: Context) {

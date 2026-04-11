@@ -9,6 +9,10 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 object DebugShareHelper {
     private const val DEFAULT_BACKEND_URL =
@@ -29,36 +33,37 @@ object DebugShareHelper {
         onBusyChanged?.invoke(true)
         val loadingDialog = showLoadingDialog(activity)
 
-        Thread {
-                    val result =
-                            runCatching {
-                                val payload = DiagnosticsCollector.collect(activity)
-                                DiagnosticsShareClient.upload(backendUrl, payload)
-                            }
-
-                    activity.runOnUiThread {
-                        loadingDialog.dismiss()
-                        onBusyChanged?.invoke(false)
-                        result.onSuccess { receipt ->
-                            AppLog.info(sourceTag, "Debug logs shared with code ${receipt.code}.")
-                            toast(activity, activity.getString(R.string.toast_log_share_success))
-                            showSharedLogsDialog(activity, receipt)
-                        }
-                        result.onFailure {
-                            val message =
-                                    it.message
-                                            ?: activity.getString(
-                                                    R.string.toast_log_share_failed
-                                            )
-                            AppLog.error(
-                                    sourceTag,
-                                    "Debug log share failed: $message"
-                            )
-                            showShareErrorDialog(activity, message)
+        activity.lifecycleScope.launch {
+            val result =
+                    withContext(Dispatchers.IO) {
+                        runCatching {
+                            val payload = DiagnosticsCollector.collect(activity)
+                            DiagnosticsShareClient.upload(backendUrl, payload)
                         }
                     }
+
+            if (!activity.isFinishing && !activity.isDestroyed) {
+                loadingDialog.dismiss()
+                onBusyChanged?.invoke(false)
+                result.onSuccess { receipt ->
+                    AppLog.info(sourceTag, "Debug logs shared with code ${receipt.code}.")
+                    toast(activity, activity.getString(R.string.toast_log_share_success))
+                    showSharedLogsDialog(activity, receipt)
                 }
-                .start()
+                result.onFailure {
+                    val message =
+                            it.message
+                                    ?: activity.getString(
+                                            R.string.toast_log_share_failed
+                                    )
+                    AppLog.error(
+                            sourceTag,
+                            "Debug log share failed: $message"
+                    )
+                    showShareErrorDialog(activity, message)
+                }
+            }
+        }
     }
 
     private fun showSharedLogsDialog(activity: ComponentActivity, receipt: SharedLogReceipt) {

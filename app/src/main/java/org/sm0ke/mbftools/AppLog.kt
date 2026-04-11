@@ -6,14 +6,23 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.Executors
 
 object AppLog {
+    private const val PERSIST_DELAY_MS = 250L
+
     private val formatter = SimpleDateFormat("HH:mm:ss", Locale.US)
     private val entries = ArrayDeque<String>()
+    private val persistenceExecutor =
+            Executors.newSingleThreadScheduledExecutor { runnable ->
+                Thread(runnable, "mbf-app-log-writer").apply { isDaemon = true }
+            }
 
     @Volatile private var logFile: File? = null
     @Volatile private var loadedFromDisk = false
     @Volatile private var verboseLogging = false
+    @Volatile private var persistScheduled = false
+    @Volatile private var persistDirty = false
 
     fun init(context: Context) {
         if (logFile != null && loadedFromDisk) {
@@ -43,7 +52,7 @@ object AppLog {
         while (entries.size > maxLines()) {
             entries.removeFirst()
         }
-        persist()
+        requestPersistLocked()
     }
 
     fun info(tag: String, message: String) = append(message = message, tag = tag, level = "INFO")
@@ -66,19 +75,43 @@ object AppLog {
     @Synchronized
     fun clear() {
         entries.clear()
-        persist()
+        requestPersistLocked()
     }
 
-    @Synchronized
-    private fun persist() {
-        runCatching {
-                    val target = logFile ?: return
-                    target.parentFile?.mkdirs()
-                    target.writeText(text())
+    private fun requestPersistLocked() {
+        persistDirty = true
+        if (persistScheduled) {
+            return
+        }
+        persistScheduled = true
+        persistenceExecutor.schedule({ flushPersisted() }, PERSIST_DELAY_MS, java.util.concurrent.TimeUnit.MILLISECONDS)
+    }
+
+    private fun flushPersisted() {
+        while (true) {
+            val target: File
+            val snapshot: String
+            synchronized(this) {
+                if (!persistDirty) {
+                    persistScheduled = false
+                    return
                 }
-                .getOrElse {
-                    // Keep logging in-memory even if disk persistence fails.
+                persistDirty = false
+                target = logFile ?: run {
+                    persistScheduled = false
+                    return
                 }
+                snapshot = entries.joinToString(separator = "\n")
+            }
+
+            runCatching {
+                        target.parentFile?.mkdirs()
+                        target.writeText(snapshot)
+                    }
+                    .getOrElse {
+                        // Keep logging in-memory even if disk persistence fails.
+                    }
+        }
     }
 
     fun isVerboseLoggingEnabled(): Boolean = verboseLogging

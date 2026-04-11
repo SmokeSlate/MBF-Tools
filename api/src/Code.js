@@ -1,4 +1,3 @@
-const FILE_PROP_PREFIX = 'log_file_';
 const FOLDER_ID_PROP = 'logs_folder_id';
 const LOG_FOLDER_NAME = 'MBF Tools Shared Logs';
 const COMMAND_PREFIX = '!s';
@@ -222,32 +221,16 @@ function buildMessageText_(record) {
 
 function saveRecord_(code, record) {
   const folder = getOrCreateLogsFolder_();
-  const file = folder.createFile(`${code}.json`, JSON.stringify(record, null, 2), MimeType.PLAIN_TEXT);
-  PropertiesService.getScriptProperties().setProperty(FILE_PROP_PREFIX + code, file.getId());
+  folder.createFile(`${code}.json`, JSON.stringify(record, null, 2), MimeType.PLAIN_TEXT);
 }
 
 function loadRecord_(code) {
-  const props = PropertiesService.getScriptProperties();
-  let fileId = props.getProperty(FILE_PROP_PREFIX + code);
-  let file = null;
-
-  if (fileId) {
-    try {
-      file = DriveApp.getFileById(fileId);
-    } catch (error) {
-      file = null;
-    }
+  const files = getOrCreateLogsFolder_().getFilesByName(`${code}.json`);
+  if (!files.hasNext()) {
+    return null;
   }
 
-  if (!file) {
-    const files = getOrCreateLogsFolder_().getFilesByName(`${code}.json`);
-    if (!files.hasNext()) {
-      return null;
-    }
-    file = files.next();
-    props.setProperty(FILE_PROP_PREFIX + code, file.getId());
-  }
-
+  const file = files.next();
   return JSON.parse(file.getBlob().getDataAsString());
 }
 
@@ -285,10 +268,10 @@ function getBaseUrl_() {
 }
 
 function generateCode_() {
-  const props = PropertiesService.getScriptProperties();
+  const folder = getOrCreateLogsFolder_();
   for (let i = 0; i < 10; i += 1) {
     const code = Math.random().toString(36).slice(2, 7).toLowerCase();
-    if (!props.getProperty(FILE_PROP_PREFIX + code)) {
+    if (!folder.getFilesByName(`${code}.json`).hasNext()) {
       return code;
     }
   }
