@@ -349,7 +349,7 @@ function renderViewerPage_(record) {
         color: #eaf4ff;
       }
       .page {
-        max-width: 1200px;
+        max-width: 1280px;
         margin: 0 auto;
         padding: 24px;
       }
@@ -390,34 +390,67 @@ function renderViewerPage_(record) {
       .summary {
         font-size: 18px;
         color: #ffffff;
+        margin: 0;
       }
       .stats {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        grid-template-columns: repeat(6, minmax(0, 1fr));
         gap: 12px;
-        margin-top: 14px;
       }
       .stat {
         background: rgba(23, 43, 67, 0.9);
         border-radius: 14px;
-        padding: 12px;
+        padding: 14px;
+        min-height: 76px;
       }
       .hero-top {
-        display: flex;
+        display: grid;
+        gap: 18px;
+        grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.9fr);
+        align-items: start;
+      }
+      .hero-lead {
+        min-width: 0;
+        display: grid;
         gap: 16px;
-        align-items: flex-start;
-        justify-content: space-between;
-        flex-wrap: wrap;
+        align-content: start;
       }
       .hero-meta {
-        min-width: 280px;
-        flex: 0 1 320px;
+        min-width: 0;
+        display: grid;
+        gap: 12px;
+      }
+      .hero-meta-card {
+        height: 100%;
+        background: linear-gradient(180deg, rgba(16, 35, 56, 0.92) 0%, rgba(11, 25, 41, 0.96) 100%);
+        border: 1px solid rgba(146, 198, 255, 0.18);
+        border-radius: 18px;
+        padding: 18px;
+      }
+      .hero-heading {
+        display: grid;
+        gap: 12px;
+      }
+      .meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .meta-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: rgba(18, 42, 68, 0.72);
+        border: 1px solid rgba(146, 198, 255, 0.16);
+        color: #d5e8fb;
+        font-size: 13px;
       }
       .status-pills {
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
-        margin-top: 12px;
       }
       .pill {
         display: inline-flex;
@@ -449,7 +482,8 @@ function renderViewerPage_(record) {
       }
       .value {
         margin-top: 6px;
-        font-size: 16px;
+        font-size: 15px;
+        line-height: 1.35;
       }
       pre {
         white-space: pre-wrap;
@@ -470,7 +504,9 @@ function renderViewerPage_(record) {
         display: flex;
         flex-wrap: wrap;
         gap: 10px;
-        margin-top: 18px;
+        margin-top: 2px;
+        padding-top: 16px;
+        border-top: 1px solid rgba(146, 198, 255, 0.14);
       }
       .tab-button {
         appearance: none;
@@ -520,21 +556,37 @@ function renderViewerPage_(record) {
       }
       .fact {
         display: flex;
-        justify-content: space-between;
-        gap: 16px;
+        flex-direction: column;
+        justify-content: flex-start;
+        gap: 8px;
         padding: 12px 14px;
         border-radius: 14px;
         background: rgba(16, 35, 56, 0.85);
+        align-items: flex-start;
       }
       .fact-key {
         color: #8cb6dd;
       }
       .fact-value {
-        text-align: right;
+        text-align: left;
+        font-weight: 600;
+        font-size: 18px;
+        line-height: 1.3;
+      }
+      @media (max-width: 1180px) {
+        .stats {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
       }
       @media (max-width: 860px) {
+        .hero-top {
+          grid-template-columns: 1fr;
+        }
         .split {
           grid-template-columns: 1fr;
+        }
+        .stats {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
         }
       }
       @media (max-width: 640px) {
@@ -545,8 +597,19 @@ function renderViewerPage_(record) {
           padding: 16px;
           border-radius: 16px;
         }
-        .stats {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+        .tabs {
+          gap: 8px;
+        }
+        .tab-button {
+          padding: 9px 13px;
+          font-size: 13px;
+        }
+        .meta-row {
+          gap: 8px;
+        }
+        .meta-chip {
+          width: 100%;
+          justify-content: flex-start;
         }
       }
     </style>
@@ -555,19 +618,34 @@ function renderViewerPage_(record) {
     <div class="page">
       <div class="hero">
         <div class="hero-top">
-          <div>
-            <h1>MBF Tools Debug Viewer</h1>
-            <p class="summary">${escapeHtml_(record.summary || 'No short summary is available.')}</p>
-            <p class="muted">Code: <code>${escapeHtml_(record.code || '')}</code> · Command: <code>${escapeHtml_(record.command || '')}</code> · Created: ${escapeHtml_(record.createdAt || '')}</p>
+          <div class="hero-lead">
+            <div class="hero-heading">
+              <h1>MBF Tools Debug Viewer</h1>
+              <p class="summary">${escapeHtml_(record.summary || 'No short summary is available.')}</p>
+              <div class="meta-row">
+                <div class="meta-chip">Code: <code>${escapeHtml_(record.code || '')}</code></div>
+                <div class="meta-chip">Command: <code>${escapeHtml_(record.command || '')}</code></div>
+                <div class="meta-chip">Created: ${escapeHtml_(record.createdAt || '')}</div>
+              </div>
+            </div>
             <div class="status-pills">
               <div class="pill ${setup.connectedDevice ? 'ok' : 'bad'}">ADB ${escapeHtml_(setup.connectedDevice ? 'connected' : 'not connected')}</div>
               <div class="pill ${setup.wirelessDebuggingEnabled ? 'ok' : 'bad'}">Wireless Debugging ${escapeHtml_(setup.wirelessDebuggingEnabled ? 'on' : 'off')}</div>
               <div class="pill ${setup.developerModeEnabled ? 'ok' : 'bad'}">Developer mode ${escapeHtml_(setup.developerModeEnabled ? 'on' : 'off')}</div>
               <div class="pill ${beatSaber.installed ? 'ok' : 'warn'}">Beat Saber ${escapeHtml_(beatSaber.installed ? 'installed' : 'not found')}</div>
             </div>
+            <div class="stats">
+              <div class="stat"><div class="label">Current step</div><div class="value">${escapeHtml_(setup.currentGuideStep || 'Not in setup')}</div></div>
+              <div class="stat"><div class="label">ADB</div><div class="value">${escapeHtml_(setup.connectedDevice ? `Connected to ${setup.connectedDevice}` : 'Not connected')}</div></div>
+              <div class="stat"><div class="label">Beat Saber</div><div class="value">${escapeHtml_(beatSaber.installed ? `${beatSaber.versionName || 'Installed'}` : 'Not installed')}</div></div>
+              <div class="stat"><div class="label">Mods</div><div class="value">${escapeHtml_(String(Number(mods.count || 0)))}</div></div>
+              <div class="stat"><div class="label">Errors</div><div class="value">${escapeHtml_(String(Number(logStats.errorCount || 0)))}</div></div>
+              <div class="stat"><div class="label">Warnings</div><div class="value">${escapeHtml_(String(Number(logStats.warnCount || 0)))}</div></div>
+              <div class="stat"><div class="label">Beat Saber logs</div><div class="value">${escapeHtml_(String(Number(beatSaberLogs.lineCount || 0)))}</div></div>
+            </div>
           </div>
           <div class="hero-meta">
-            <div class="panel" style="padding:16px;">
+            <div class="hero-meta-card">
               <h3>At a glance</h3>
               <div class="facts">
                 <div class="fact"><span class="fact-key">Guide step</span><span class="fact-value">${escapeHtml_(setup.currentGuideStep || 'Not in setup')}</span></div>
@@ -576,15 +654,6 @@ function renderViewerPage_(record) {
               </div>
             </div>
           </div>
-        </div>
-        <div class="stats">
-          <div class="stat"><div class="label">Current step</div><div class="value">${escapeHtml_(setup.currentGuideStep || 'Not in setup')}</div></div>
-          <div class="stat"><div class="label">ADB</div><div class="value">${escapeHtml_(setup.connectedDevice ? `Connected to ${setup.connectedDevice}` : 'Not connected')}</div></div>
-          <div class="stat"><div class="label">Beat Saber</div><div class="value">${escapeHtml_(beatSaber.installed ? `${beatSaber.versionName || 'Installed'}` : 'Not installed')}</div></div>
-          <div class="stat"><div class="label">Mods</div><div class="value">${escapeHtml_(String(Number(mods.count || 0)))}</div></div>
-          <div class="stat"><div class="label">Errors</div><div class="value">${escapeHtml_(String(Number(logStats.errorCount || 0)))}</div></div>
-          <div class="stat"><div class="label">Warnings</div><div class="value">${escapeHtml_(String(Number(logStats.warnCount || 0)))}</div></div>
-          <div class="stat"><div class="label">Beat Saber logs</div><div class="value">${escapeHtml_(String(Number(beatSaberLogs.lineCount || 0)))}</div></div>
         </div>
         <div class="tabs" role="tablist" aria-label="Debug viewer sections">
           <button class="tab-button active" type="button" role="tab" aria-selected="true" aria-controls="tab-overview" data-tab-target="tab-overview">Overview</button>
