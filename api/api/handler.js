@@ -470,7 +470,6 @@ function renderViewerPage_(record, baseUrl) {
   const beatSaberInteresting = Array.isArray(beatSaberLogs.interesting) ? beatSaberLogs.interesting : [];
   const logsText = String(payload.logsText || '');
   const rawJson = JSON.stringify(record, null, 2);
-  const aifixUrl = buildActionUrl_(baseUrl, 'aifix', record.code);
 
   const pill = (ok, label) => `<span class="badge ${ok ? 'badge-ok' : 'badge-bad'}">${escapeHtml_(label)}</span>`;
   const bsStatus = beatSaber.installed ? 'badge-ok' : 'badge-warn';
@@ -533,7 +532,6 @@ function renderViewerPage_(record, baseUrl) {
           <button class="tab" type="button" data-tab="tab-mods">Mods</button>
           <button class="tab" type="button" data-tab="tab-bslogs">Beat Saber Logs</button>
           <button class="tab" type="button" data-tab="tab-applogs">App Logs</button>
-          <button class="tab" type="button" data-tab="tab-aifix">AI Fix ✨</button>
           <button class="tab" type="button" data-tab="tab-json">Raw JSON</button>
         </div>
         </div><!-- end .container (header) -->
@@ -597,13 +595,6 @@ function renderViewerPage_(record, baseUrl) {
             </div>
           </div>
 
-          <div id="tab-aifix" class="tab-panel">
-            <div class="section-title">AI Fix Suggestions ✨</div>
-            <p class="muted" style="margin:0 0 12px;">AI-powered step-by-step fix instructions based on the detected issues.</p>
-            <button class="btn" id="ai-fix-btn" type="button" style="margin-bottom:14px;">Generate AI Fix</button>
-            <div id="ai-fix-output" style="display:none;"><div class="ai-result" id="ai-fix-text"></div></div>
-          </div>
-
           <div id="tab-json" class="tab-panel">
             <div class="section-title">Raw JSON</div>
             <pre>${escapeHtml_(rawJson)}</pre>
@@ -621,20 +612,6 @@ function renderViewerPage_(record, baseUrl) {
           panels.forEach(p=>p.classList.toggle('active',p.id===t));
         }
         tabs.forEach(b=>b.addEventListener('click',()=>setTab(b.getAttribute('data-tab'))));
-        const btn=document.getElementById('ai-fix-btn');
-        const out=document.getElementById('ai-fix-output');
-        const txt=document.getElementById('ai-fix-text');
-        btn.addEventListener('click',async function(){
-          btn.disabled=true;btn.textContent='Generating...';
-          try{
-            const r=await fetch(${JSON.stringify(aifixUrl)});
-            const d=await r.json();
-            txt.textContent=d.ok?d.fix:('Error: '+(d.error||'Unknown'));
-            out.style.display='block';
-            btn.textContent=d.ok?'Regenerate AI Fix':'Retry';
-          }catch(e){txt.textContent='Failed: '+e.message;out.style.display='block';btn.textContent='Retry';}
-          btn.disabled=false;
-        });
       })();
     </script>
   </body>
