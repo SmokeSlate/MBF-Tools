@@ -1,38 +1,47 @@
-import { kv } from '@vercel/kv';
-
 const COMMAND_PREFIX = '!s';
 const CODE_TTL = 60 * 60 * 24 * 30; // 30 days
 
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    };
 
-  if (req.method === 'OPTIONS') {
-    return res.status(204).end();
-  }
-
-  if (req.method === 'POST') {
-    return handleUpload(req, res);
-  }
-
-  if (req.method === 'GET') {
-    return handleGet(req, res);
-  }
-
-  return res.status(405).json({ ok: false, error: 'Method not allowed.' });
-}
-
-async function handleUpload(req, res) {
-  try {
-    const payload = req.body;
-    if (!payload || typeof payload !== 'object') {
-      return res.status(400).json({ ok: false, error: 'Payload must be a JSON object.' });
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: corsHeaders });
     }
 
-    const code = await generateCode_();
+    if (request.method === 'POST') {
+      return handleUpload(request, env, url, corsHeaders);
+    }
+
+    if (request.method === 'GET') {
+      return handleGet(request, env, url, corsHeaders);
+    }
+
+    return jsonResponse({ ok: false, error: 'Method not allowed.' }, 405, corsHeaders);
+  },
+};
+
+async function handleUpload(request, env, url, corsHeaders) {
+  try {
+    let payload;
+    try {
+      payload = await request.json();
+    } catch {
+      return jsonResponse({ ok: false, error: 'Request body was not valid JSON.' }, 400, corsHeaders);
+    }
+
+    if (!payload || typeof payload !== 'object') {
+      return jsonResponse({ ok: false, error: 'Payload must be a JSON object.' }, 400, corsHeaders);
+    }
+
+    const code = await generateCode_(env);
     const analysis = analyzePayload_(payload);
-    const baseUrl = getBaseUrl_(req);
+    const baseUrl = `${url.protocol}//${url.host}`;
 
     const record = {
       code,
@@ -43,9 +52,9 @@ async function handleUpload(req, res) {
       payload,
     };
 
-    await kv.set(`log:${code}`, record, { ex: CODE_TTL });
+    await env.LOGS.put(`log:${code}`, JSON.stringify(record), { expirationTtl: CODE_TTL });
 
-    return res.status(200).json({
+    return jsonResponse({
       ok: true,
       code,
       command: record.command,
@@ -54,76 +63,72 @@ async function handleUpload(req, res) {
       summaryUrl: buildActionUrl_(baseUrl, 'summary', code),
       messageUrl: buildActionUrl_(baseUrl, 'message', code),
       dataUrl: buildActionUrl_(baseUrl, 'data', code),
-    });
+    }, 200, corsHeaders);
   } catch (error) {
-    return res.status(500).json({ ok: false, error: error?.message || String(error) });
+    return jsonResponse({ ok: false, error: error?.message || String(error) }, 500, corsHeaders);
   }
 }
 
-async function handleGet(req, res) {
-  const action = String(req.query.action || '').trim().toLowerCase() || 'view';
-  const code = String(req.query.code || '').trim().toLowerCase();
+async function handleGet(request, env, url, corsHeaders) {
+  const action = (url.searchParams.get('action') || '').trim().toLowerCase() || 'view';
+  const code = (url.searchParams.get('code') || '').trim().toLowerCase();
 
   if (!code) {
-    if (action === 'view') return sendHtml(res, renderMissingCodePage_());
-    return res.status(400).json({ ok: false, error: 'Missing code.' });
+    if (action === 'view') return htmlResponse(renderMissingCodePage_(), corsHeaders);
+    return jsonResponse({ ok: false, error: 'Missing code.' }, 400, corsHeaders);
   }
 
   if (action === 'aifix') {
-    return handleAiFix(req, res, code);
+    return handleAiFix(env, url, code, corsHeaders);
   }
 
-  const record = await kv.get(`log:${code}`);
-  if (!record) {
-    if (action === 'view') return sendHtml(res, renderErrorPage_(`No shared log was found for code ${escapeHtml_(code)}.`));
-    return res.status(404).json({ ok: false, error: `No shared log was found for code ${code}.` });
+  const raw = await env.LOGS.get(`log:${code}`);
+  if (!raw) {
+    if (action === 'view') return htmlResponse(renderErrorPage_(`No shared log was found for code ${escapeHtml_(code)}.`), corsHeaders);
+    return jsonResponse({ ok: false, error: `No shared log was found for code ${code}.` }, 404, corsHeaders);
   }
+
+  const record = JSON.parse(raw);
+  const baseUrl = `${url.protocol}//${url.host}`;
 
   switch (action) {
     case 'summary': {
-      const format = String(req.query.format || '').trim().toLowerCase();
-      if (format === 'text') {
-        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-        return res.status(200).send(record.summary || 'No short summary is available.');
-      }
-      return res.status(200).json({
+      const format = (url.searchParams.get('format') || '').trim().toLowerCase();
+      if (format === 'text') return textResponse(record.summary || 'No short summary is available.', corsHeaders);
+      return jsonResponse({
         ok: true,
         code: record.code,
         summary: record.summary,
         issues: record.issues,
         currentGuideStep: record.payload?.setup?.currentGuideStep || '',
         createdAt: record.createdAt,
-      });
+      }, 200, corsHeaders);
     }
-    case 'message': {
-      const baseUrl = getBaseUrl_(req);
-      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-      return res.status(200).send(buildMessageText_(record, baseUrl));
-    }
+    case 'message':
+      return textResponse(buildMessageText_(record, baseUrl), corsHeaders);
     case 'data':
-      return res.status(200).json({
+      return jsonResponse({
         ok: true,
         code: record.code,
         createdAt: record.createdAt,
         summary: record.summary,
         issues: record.issues,
         payload: record.payload,
-      });
+      }, 200, corsHeaders);
     case 'view':
-    default: {
-      const baseUrl = getBaseUrl_(req);
-      return sendHtml(res, renderViewerPage_(record, baseUrl));
-    }
+    default:
+      return htmlResponse(renderViewerPage_(record, baseUrl), corsHeaders);
   }
 }
 
-async function handleAiFix(req, res, code) {
-  const record = await kv.get(`log:${code}`);
-  if (!record) {
-    return res.status(404).json({ ok: false, error: `No shared log was found for code ${code}.` });
+async function handleAiFix(env, url, code, corsHeaders) {
+  const raw = await env.LOGS.get(`log:${code}`);
+  if (!raw) {
+    return jsonResponse({ ok: false, error: `No shared log was found for code ${code}.` }, 404, corsHeaders);
   }
 
   try {
+    const record = JSON.parse(raw);
     const setup = record.payload?.setup || {};
     const beatSaber = record.payload?.beatSaber || {};
     const mods = record.payload?.mods || {};
@@ -143,25 +148,30 @@ async function handleAiFix(req, res, code) {
       `Current guide step: ${setup.currentGuideStep || 'none'}`,
     ].join('\n');
 
-    const encodedPrompt = encodeURIComponent(prompt);
-    const aiRes = await fetch(`https://gen.pollinations.ai/text/${encodedPrompt}`, {
+    const aiRes = await fetch(`https://gen.pollinations.ai/text/${encodeURIComponent(prompt)}`, {
       signal: AbortSignal.timeout(20000),
     });
 
-    if (!aiRes.ok) {
-      throw new Error(`Pollinations returned ${aiRes.status}`);
-    }
+    if (!aiRes.ok) throw new Error(`Pollinations returned ${aiRes.status}`);
 
     const fix = await aiRes.text();
-    return res.status(200).json({ ok: true, code, fix: fix.trim() });
+    return jsonResponse({ ok: true, code, fix: fix.trim() }, 200, corsHeaders);
   } catch (error) {
-    return res.status(500).json({ ok: false, error: error?.message || 'AI fix failed.' });
+    return jsonResponse({ ok: false, error: error?.message || 'AI fix failed.' }, 500, corsHeaders);
   }
 }
 
-function sendHtml(res, html) {
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  return res.status(200).send(html);
+async function generateCode_(env) {
+  for (let i = 0; i < 10; i++) {
+    const code = Math.random().toString(36).slice(2, 7).toLowerCase();
+    const existing = await env.LOGS.get(`log:${code}`);
+    if (!existing) return code;
+  }
+  return crypto.randomUUID().replace(/-/g, '').slice(0, 8).toLowerCase();
+}
+
+function buildActionUrl_(baseUrl, action, code) {
+  return `${baseUrl}?action=${encodeURIComponent(action)}&code=${encodeURIComponent(code)}`;
 }
 
 function analyzePayload_(payload) {
@@ -251,23 +261,25 @@ function buildMessageText_(record, baseUrl) {
   ].join('\n');
 }
 
-async function generateCode_() {
-  for (let i = 0; i < 10; i++) {
-    const code = Math.random().toString(36).slice(2, 7).toLowerCase();
-    const existing = await kv.get(`log:${code}`);
-    if (!existing) return code;
-  }
-  return crypto.randomUUID().replace(/-/g, '').slice(0, 8).toLowerCase();
+function jsonResponse(value, status = 200, extraHeaders = {}) {
+  return new Response(JSON.stringify(value), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...extraHeaders },
+  });
 }
 
-function buildActionUrl_(baseUrl, action, code) {
-  return `${baseUrl}?action=${encodeURIComponent(action)}&code=${encodeURIComponent(code)}`;
+function textResponse(text, extraHeaders = {}) {
+  return new Response(String(text || ''), {
+    status: 200,
+    headers: { 'Content-Type': 'text/plain; charset=utf-8', ...extraHeaders },
+  });
 }
 
-function getBaseUrl_(req) {
-  const proto = req.headers['x-forwarded-proto'] || 'https';
-  const host = req.headers['x-forwarded-host'] || req.headers.host;
-  return `${proto}://${host}`;
+function htmlResponse(html, extraHeaders = {}) {
+  return new Response(html, {
+    status: 200,
+    headers: { 'Content-Type': 'text/html; charset=utf-8', ...extraHeaders },
+  });
 }
 
 function escapeHtml_(value) {
@@ -297,15 +309,12 @@ function renderViewerPage_(record, baseUrl) {
   const issueList = Array.isArray(record.issues) && record.issues.length > 0
     ? `<ul>${record.issues.map(i => `<li>${escapeHtml_(i)}</li>`).join('')}</ul>`
     : '<p class="muted">No explicit issues were inferred.</p>';
-
   const problemList = recentProblems.length > 0
     ? `<ul>${recentProblems.map(l => `<li>${escapeHtml_(l)}</li>`).join('')}</ul>`
     : '<p class="muted">No recent warning or error lines were captured.</p>';
-
   const modList = modItems.length > 0
     ? `<ul>${modItems.map(i => `<li>${escapeHtml_(i)}</li>`).join('')}</ul>`
     : '<p class="muted">No installed mods were detected.</p>';
-
   const beatSaberProblems = beatSaberInteresting.length > 0
     ? `<ul>${beatSaberInteresting.map(l => `<li>${escapeHtml_(l)}</li>`).join('')}</ul>`
     : '<p class="muted">No Beat Saber error-like lines were detected.</p>';
@@ -318,81 +327,45 @@ function renderViewerPage_(record, baseUrl) {
     <title>MBF Tools Debug Viewer</title>
     <style>
       :root { color-scheme: dark; }
-      body {
-        margin: 0;
-        font-family: "Segoe UI", sans-serif;
-        background: radial-gradient(circle at top, rgba(54,139,255,0.22), transparent 34%), linear-gradient(180deg,#081626 0%,#0f2134 100%);
-        color: #eaf4ff;
-      }
-      .page { max-width: 1200px; margin: 0 auto; padding: 24px; }
-      .hero, .panel {
-        background: rgba(6,17,30,0.82);
-        border: 1px solid rgba(146,198,255,0.22);
-        border-radius: 20px;
-        padding: 20px;
-        box-shadow: 0 16px 48px rgba(0,0,0,0.22);
-      }
-      .hero { margin-bottom: 16px; }
-      .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit,minmax(320px,1fr)); }
-      h1,h2 { margin: 0 0 10px 0; }
-      h2 { font-size: 20px; }
-      h3 { margin: 0 0 8px 0; font-size: 14px; color: #d6e7f8; text-transform: uppercase; letter-spacing: .08em; }
-      p,li { line-height: 1.5; }
-      .muted { color: #a7bfd8; }
-      .summary { font-size: 18px; color: #fff; }
-      .stats { display: grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap: 12px; margin-top: 14px; }
-      .stat { background: rgba(23,43,67,0.9); border-radius: 14px; padding: 12px; }
-      .hero-top { display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
-      .hero-meta { min-width: 280px; flex: 0 1 320px; }
-      .status-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-      .pill { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 8px 12px; font-size: 13px; background: rgba(18,42,68,0.95); border: 1px solid rgba(146,198,255,0.18); }
-      .pill.ok { border-color: rgba(112,224,176,0.28); color: #dffbea; }
-      .pill.warn { border-color: rgba(255,191,102,0.26); color: #fff0d5; }
-      .pill.bad { border-color: rgba(255,124,124,0.28); color: #ffe0e0; }
-      .label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: #8cb6dd; }
-      .value { margin-top: 6px; font-size: 16px; }
-      pre { white-space: pre-wrap; word-break: break-word; background: rgba(1,8,16,0.72); border-radius: 14px; padding: 14px; overflow: auto; }
-      code { font-family: "Cascadia Code","Consolas",monospace; }
-      ul { margin: 10px 0 0 18px; padding: 0; }
-      .tabs { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
-      .tab-button {
-        appearance: none;
-        border: 1px solid rgba(146,198,255,0.18);
-        background: rgba(14,31,50,0.9);
-        color: #d9ebfd;
-        border-radius: 999px;
-        padding: 10px 16px;
-        cursor: pointer;
-        font-size: 14px;
-      }
-      .tab-button:hover { background: rgba(21,44,70,0.95); border-color: rgba(146,198,255,0.32); }
-      .tab-button.active { background: linear-gradient(180deg,#2d79dd 0%,#215cad 100%); border-color: rgba(162,212,255,0.5); color: #fff; }
-      .tab-panel { display: none; margin-top: 16px; }
-      .tab-panel.active { display: block; }
-      .section-stack { display: grid; gap: 16px; }
-      .split { display: grid; gap: 16px; grid-template-columns: 1.2fr 0.8fr; }
-      .empty-state { margin: 0; padding: 18px; border-radius: 14px; background: rgba(1,8,16,0.46); border: 1px dashed rgba(146,198,255,0.18); }
-      .facts { display: grid; gap: 10px; }
-      .fact { display: flex; justify-content: space-between; gap: 16px; padding: 12px 14px; border-radius: 14px; background: rgba(16,35,56,0.85); }
-      .fact-key { color: #8cb6dd; }
-      .fact-value { text-align: right; }
-      .ai-btn {
-        appearance: none;
-        border: 1px solid rgba(162,212,255,0.4);
-        background: linear-gradient(180deg,#2d79dd 0%,#215cad 100%);
-        color: #fff;
-        border-radius: 999px;
-        padding: 12px 22px;
-        cursor: pointer;
-        font-size: 15px;
-        font-weight: 600;
-        margin-bottom: 16px;
-      }
-      .ai-btn:hover { filter: brightness(1.1); }
-      .ai-btn:disabled { opacity: 0.55; cursor: default; }
-      .ai-result { white-space: pre-wrap; background: rgba(1,8,16,0.72); border-radius: 14px; padding: 16px; font-family: "Segoe UI",sans-serif; line-height: 1.6; }
-      @media (max-width: 860px) { .split { grid-template-columns: 1fr; } }
-      @media (max-width: 640px) { .page { padding: 16px; } .hero,.panel { padding: 16px; border-radius: 16px; } .stats { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+      body { margin:0; font-family:"Segoe UI",sans-serif; background:radial-gradient(circle at top,rgba(54,139,255,0.22),transparent 34%),linear-gradient(180deg,#081626 0%,#0f2134 100%); color:#eaf4ff; }
+      .page { max-width:1200px; margin:0 auto; padding:24px; }
+      .hero,.panel { background:rgba(6,17,30,0.82); border:1px solid rgba(146,198,255,0.22); border-radius:20px; padding:20px; box-shadow:0 16px 48px rgba(0,0,0,0.22); }
+      .hero { margin-bottom:16px; }
+      .grid { display:grid; gap:16px; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); }
+      h1,h2 { margin:0 0 10px 0; } h2 { font-size:20px; }
+      h3 { margin:0 0 8px 0; font-size:14px; color:#d6e7f8; text-transform:uppercase; letter-spacing:.08em; }
+      p,li { line-height:1.5; } .muted { color:#a7bfd8; }
+      .summary { font-size:18px; color:#fff; }
+      .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-top:14px; }
+      .stat { background:rgba(23,43,67,0.9); border-radius:14px; padding:12px; }
+      .hero-top { display:flex; gap:16px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; }
+      .hero-meta { min-width:280px; flex:0 1 320px; }
+      .status-pills { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+      .pill { display:inline-flex; align-items:center; gap:8px; border-radius:999px; padding:8px 12px; font-size:13px; background:rgba(18,42,68,0.95); border:1px solid rgba(146,198,255,0.18); }
+      .pill.ok { border-color:rgba(112,224,176,0.28); color:#dffbea; }
+      .pill.warn { border-color:rgba(255,191,102,0.26); color:#fff0d5; }
+      .pill.bad { border-color:rgba(255,124,124,0.28); color:#ffe0e0; }
+      .label { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8cb6dd; }
+      .value { margin-top:6px; font-size:16px; }
+      pre { white-space:pre-wrap; word-break:break-word; background:rgba(1,8,16,0.72); border-radius:14px; padding:14px; overflow:auto; }
+      code { font-family:"Cascadia Code","Consolas",monospace; }
+      ul { margin:10px 0 0 18px; padding:0; }
+      .tabs { display:flex; flex-wrap:wrap; gap:10px; margin-top:18px; }
+      .tab-button { appearance:none; border:1px solid rgba(146,198,255,0.18); background:rgba(14,31,50,0.9); color:#d9ebfd; border-radius:999px; padding:10px 16px; cursor:pointer; font-size:14px; }
+      .tab-button:hover { background:rgba(21,44,70,0.95); border-color:rgba(146,198,255,0.32); }
+      .tab-button.active { background:linear-gradient(180deg,#2d79dd 0%,#215cad 100%); border-color:rgba(162,212,255,0.5); color:#fff; }
+      .tab-panel { display:none; margin-top:16px; } .tab-panel.active { display:block; }
+      .section-stack { display:grid; gap:16px; }
+      .split { display:grid; gap:16px; grid-template-columns:1.2fr 0.8fr; }
+      .empty-state { margin:0; padding:18px; border-radius:14px; background:rgba(1,8,16,0.46); border:1px dashed rgba(146,198,255,0.18); }
+      .facts { display:grid; gap:10px; }
+      .fact { display:flex; justify-content:space-between; gap:16px; padding:12px 14px; border-radius:14px; background:rgba(16,35,56,0.85); }
+      .fact-key { color:#8cb6dd; } .fact-value { text-align:right; }
+      .ai-btn { appearance:none; border:1px solid rgba(162,212,255,0.4); background:linear-gradient(180deg,#2d79dd 0%,#215cad 100%); color:#fff; border-radius:999px; padding:12px 22px; cursor:pointer; font-size:15px; font-weight:600; margin-bottom:16px; }
+      .ai-btn:hover { filter:brightness(1.1); } .ai-btn:disabled { opacity:.55; cursor:default; }
+      .ai-result { white-space:pre-wrap; background:rgba(1,8,16,0.72); border-radius:14px; padding:16px; font-family:"Segoe UI",sans-serif; line-height:1.6; }
+      @media (max-width:860px) { .split { grid-template-columns:1fr; } }
+      @media (max-width:640px) { .page { padding:16px; } .hero,.panel { padding:16px; border-radius:16px; } .stats { grid-template-columns:repeat(2,minmax(0,1fr)); } }
     </style>
   </head>
   <body>
@@ -431,13 +404,13 @@ function renderViewerPage_(record, baseUrl) {
           <div class="stat"><div class="label">Beat Saber logs</div><div class="value">${escapeHtml_(String(Number(beatSaberLogs.lineCount || 0)))}</div></div>
         </div>
         <div class="tabs" role="tablist">
-          <button class="tab-button active" type="button" role="tab" aria-selected="true" aria-controls="tab-overview" data-tab-target="tab-overview">Overview</button>
-          <button class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="tab-setup" data-tab-target="tab-setup">Setup</button>
-          <button class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="tab-mods" data-tab-target="tab-mods">Mods</button>
-          <button class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="tab-bslogs" data-tab-target="tab-bslogs">Beat Saber Logs</button>
-          <button class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="tab-applogs" data-tab-target="tab-applogs">App Logs</button>
-          <button class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="tab-aifix" data-tab-target="tab-aifix">AI Fix ✨</button>
-          <button class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="tab-json" data-tab-target="tab-json">Raw JSON</button>
+          <button class="tab-button active" type="button" role="tab" aria-selected="true" data-tab-target="tab-overview">Overview</button>
+          <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="tab-setup">Setup</button>
+          <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="tab-mods">Mods</button>
+          <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="tab-bslogs">Beat Saber Logs</button>
+          <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="tab-applogs">App Logs</button>
+          <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="tab-aifix">AI Fix ✨</button>
+          <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="tab-json">Raw JSON</button>
         </div>
       </div>
 
@@ -532,21 +505,13 @@ function renderViewerPage_(record, baseUrl) {
         </div>
       </div>
     </div>
-
     <script>
       (function () {
         const buttons = Array.from(document.querySelectorAll('.tab-button'));
         const panels = Array.from(document.querySelectorAll('.tab-panel'));
-        function setActiveTab(targetId) {
-          buttons.forEach(b => {
-            const active = b.getAttribute('data-tab-target') === targetId;
-            b.classList.toggle('active', active);
-            b.setAttribute('aria-selected', active ? 'true' : 'false');
-          });
-          panels.forEach(p => {
-            const active = p.id === targetId;
-            p.classList.toggle('active', active);
-          });
+        function setActiveTab(t) {
+          buttons.forEach(b => { const a = b.getAttribute('data-tab-target') === t; b.classList.toggle('active', a); b.setAttribute('aria-selected', a ? 'true' : 'false'); });
+          panels.forEach(p => p.classList.toggle('active', p.id === t));
         }
         buttons.forEach(b => b.addEventListener('click', () => setActiveTab(b.getAttribute('data-tab-target'))));
 
@@ -559,15 +524,9 @@ function renderViewerPage_(record, baseUrl) {
           try {
             const res = await fetch(${JSON.stringify(aifixUrl)});
             const data = await res.json();
-            if (data.ok) {
-              aiText.textContent = data.fix;
-              aiOutput.style.display = 'block';
-              aiBtn.textContent = 'Regenerate AI Fix';
-            } else {
-              aiText.textContent = 'Error: ' + (data.error || 'Unknown error');
-              aiOutput.style.display = 'block';
-              aiBtn.textContent = 'Retry';
-            }
+            aiText.textContent = data.ok ? data.fix : ('Error: ' + (data.error || 'Unknown error'));
+            aiOutput.style.display = 'block';
+            aiBtn.textContent = data.ok ? 'Regenerate AI Fix' : 'Retry';
           } catch (e) {
             aiText.textContent = 'Failed to fetch AI fix: ' + e.message;
             aiOutput.style.display = 'block';
@@ -589,19 +548,14 @@ function renderErrorPage_(message) {
   return `<!doctype html>
 <html>
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <title>MBF Tools Debug Viewer</title>
     <style>
-      body { margin:0; font-family:"Segoe UI",sans-serif; background:#0f1722; color:#f4f8fc; display:flex; align-items:center; justify-content:center; min-height:100vh; }
-      .card { max-width:560px; background:#162232; border:1px solid rgba(181,216,255,0.18); border-radius:18px; padding:24px; }
+      body{margin:0;font-family:"Segoe UI",sans-serif;background:#0f1722;color:#f4f8fc;display:flex;align-items:center;justify-content:center;min-height:100vh;}
+      .card{max-width:560px;background:#162232;border:1px solid rgba(181,216,255,0.18);border-radius:18px;padding:24px;}
     </style>
   </head>
-  <body>
-    <div class="card">
-      <h1>MBF Tools Debug Viewer</h1>
-      <p>${message}</p>
-    </div>
-  </body>
+  <body><div class="card"><h1>MBF Tools Debug Viewer</h1><p>${message}</p></div></body>
 </html>`;
 }

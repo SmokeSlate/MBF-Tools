@@ -2,16 +2,13 @@
   "name": "mbf-tools-logs-api",
   "private": true,
   "version": "2.0.0",
-  "description": "Vercel backend for MBF Tools and Setup debug log sharing.",
+  "description": "Cloudflare Worker backend for MBF Tools debug log sharing.",
   "type": "module",
   "scripts": {
-    "dev": "vercel dev",
-    "deploy": "vercel --prod"
-  },
-  "dependencies": {
-    "@vercel/kv": "^3.0.0"
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
   },
   "devDependencies": {
-    "vercel": "^37.0.0"
+    "wrangler": "^3.0.0"
   }
 }
