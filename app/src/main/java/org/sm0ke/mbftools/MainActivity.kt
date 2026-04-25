@@ -516,69 +516,36 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun showRefreshRateMenu() {
-        val labels =
-                arrayOf(
-                        getString(R.string.device_settings_refresh_60),
-                        getString(R.string.device_settings_refresh_72),
-                        getString(R.string.device_settings_refresh_90),
-                        getString(R.string.device_settings_refresh_120)
-                )
-        val values = arrayOf("60", "72", "90", "120")
+        val presets = DeviceSettingsPresets.refreshRates
+        val labels = presets.map { getString(it.labelRes) }.toTypedArray()
         AlertDialog.Builder(this)
                 .setTitle(R.string.device_settings_refresh_title)
                 .setItems(labels) { _, which ->
-                    applyDeviceSetting(
-                            labels[which],
-                            listOf(listOf("setprop", "debug.oculus.refreshRate", values[which]))
-                    )
+                    applyDeviceSetting(labels[which], presets[which].commands)
                 }
                 .setNegativeButton(android.R.string.cancel, null)
                 .show()
     }
 
     private fun showBrightnessMenu() {
-        val labels =
-                arrayOf(
-                        getString(R.string.device_settings_brightness_low),
-                        getString(R.string.device_settings_brightness_medium),
-                        getString(R.string.device_settings_brightness_high),
-                        getString(R.string.device_settings_brightness_max)
-                )
-        val values = arrayOf("40", "110", "180", "255")
+        val presets = DeviceSettingsPresets.brightnessLevels
+        val labels = presets.map { getString(it.labelRes) }.toTypedArray()
         AlertDialog.Builder(this)
                 .setTitle(R.string.device_settings_brightness_title)
                 .setItems(labels) { _, which ->
-                    applyDeviceSetting(
-                            labels[which],
-                            listOf(
-                                    listOf("settings", "put", "system", "screen_brightness_mode", "0"),
-                                    listOf("settings", "put", "system", "screen_brightness", values[which])
-                            )
-                    )
+                    applyDeviceSetting(labels[which], presets[which].commands)
                 }
                 .setNegativeButton(android.R.string.cancel, null)
                 .show()
     }
 
     private fun showAnimationScaleMenu() {
-        val labels =
-                arrayOf(
-                        getString(R.string.device_settings_animation_off),
-                        getString(R.string.device_settings_animation_half),
-                        getString(R.string.device_settings_animation_normal)
-                )
-        val values = arrayOf("0", "0.5", "1.0")
+        val presets = DeviceSettingsPresets.animationScales
+        val labels = presets.map { getString(it.labelRes) }.toTypedArray()
         AlertDialog.Builder(this)
                 .setTitle(R.string.device_settings_animation_title)
                 .setItems(labels) { _, which ->
-                    applyDeviceSetting(
-                            labels[which],
-                            listOf(
-                                    listOf("settings", "put", "global", "window_animation_scale", values[which]),
-                                    listOf("settings", "put", "global", "transition_animation_scale", values[which]),
-                                    listOf("settings", "put", "global", "animator_duration_scale", values[which])
-                            )
-                    )
+                    applyDeviceSetting(labels[which], presets[which].commands)
                 }
                 .setNegativeButton(android.R.string.cancel, null)
                 .show()
