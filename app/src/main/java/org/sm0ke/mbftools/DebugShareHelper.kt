@@ -15,7 +15,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 object DebugShareHelper {
-    private const val DEFAULT_BACKEND_URL = "https://logs.sm0ke.org"
+    private const val DEFAULT_BACKEND_URL = "https://mbf-tools-logs-api.netherslayer87.workers.dev"
 
     fun currentBackendUrl(): String {
         return DEFAULT_BACKEND_URL
