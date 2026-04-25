@@ -23,6 +23,7 @@
         <activity
             android:name=".LauncherActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:screenOrientation="landscape">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -32,22 +33,27 @@
         <activity
             android:name=".HomeActivity"
             android:exported="false"
+            android:launchMode="singleTop"
             android:screenOrientation="landscape" />
         <activity
             android:name=".WirelessDebugRequiredActivity"
             android:exported="false"
+            android:launchMode="singleTop"
             android:screenOrientation="landscape" />
         <activity
             android:name=".BrowserActivity"
             android:exported="false"
+            android:launchMode="singleTop"
             android:screenOrientation="landscape" />
         <activity
             android:name=".MainActivity"
             android:exported="false"
+            android:launchMode="singleTop"
             android:screenOrientation="landscape" />
         <activity
             android:name=".GuideActivity"
             android:exported="false"
+            android:launchMode="singleTop"
             android:screenOrientation="landscape" />
     </application>
 </manifest>

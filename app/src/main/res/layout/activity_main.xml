@@ -369,6 +369,16 @@
                     android:textColor="@color/text_primary" />
 
                 <Button
+                    android:id="@+id/btnDeviceSettingsMenu"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/bg_button_secondary"
+                    android:text="@string/action_device_settings_menu"
+                    android:textAllCaps="false"
+                    android:textColor="@color/text_primary" />
+
+                <Button
                     android:id="@+id/btnResetSettings"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"

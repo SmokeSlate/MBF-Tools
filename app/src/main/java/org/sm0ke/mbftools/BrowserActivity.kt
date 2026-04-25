@@ -1,6 +1,7 @@
 package org.sm0ke.mbftools
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.os.Bundle
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
@@ -66,11 +67,13 @@ class BrowserActivity : ComponentActivity() {
                 }
         )
 
-        val url =
-                intent.getStringExtra(EXTRA_URL)
-                        ?: throw IllegalStateException("Browser URL is required.")
-        AppLog.info("Browser", "Opening browser for $url")
-        webView.loadUrl(url)
+        loadIntentUrl(intent, firstLoad = true)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        loadIntentUrl(intent, firstLoad = false)
     }
 
     override fun onDestroy() {
@@ -92,6 +95,20 @@ class BrowserActivity : ComponentActivity() {
                 getString(
                         if (webView.canGoBack()) R.string.browser_back else R.string.browser_close
                 )
+    }
+
+    private fun loadIntentUrl(intent: Intent, firstLoad: Boolean) {
+        val url =
+                intent.getStringExtra(EXTRA_URL)
+                        ?: throw IllegalStateException("Browser URL is required.")
+        val currentUrl = webView.url?.trim()
+        if (!firstLoad && currentUrl == url.trim()) {
+            AppLog.info("Browser", "Reused existing browser page for $url")
+            syncBackButton()
+            return
+        }
+        AppLog.info("Browser", "Opening browser for $url")
+        webView.loadUrl(url)
     }
 
     companion object {

@@ -46,10 +46,10 @@ class WirelessDebugRequiredActivity : ComponentActivity() {
             }
         }
         guideButton.setOnClickListener {
-            startActivity(Intent(this, GuideActivity::class.java))
+            AppNavigation.openScreen(this, GuideActivity::class.java)
         }
         advancedButton.setOnClickListener {
-            startActivity(Intent(this, MainActivity::class.java))
+            AppNavigation.openScreen(this, MainActivity::class.java)
         }
         shareLogsButton.setOnClickListener {
             DebugShareHelper.share(
@@ -74,7 +74,7 @@ class WirelessDebugRequiredActivity : ComponentActivity() {
         val developerModeEnabled = SetupState.isDeveloperModeEnabled(this)
         if (wirelessEnabled) {
             AppLog.info("WirelessBlock", "Wireless Debugging is enabled again. Returning to home.")
-            startActivity(Intent(this, HomeActivity::class.java))
+            AppNavigation.openScreen(this, HomeActivity::class.java)
             finish()
             return
         }

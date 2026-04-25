@@ -1,6 +1,5 @@
 package org.sm0ke.mbftools
 
-import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 
@@ -22,7 +21,7 @@ class LauncherActivity : ComponentActivity() {
         if (target == HomeActivity::class.java) {
             AppPrefs.clearCurrentGuideStep(this)
         }
-        startActivity(Intent(this, target))
+        AppNavigation.openScreen(this, target)
         finish()
     }
 }

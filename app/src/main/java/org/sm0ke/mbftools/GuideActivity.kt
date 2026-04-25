@@ -297,14 +297,12 @@ class GuideActivity : ComponentActivity() {
 
     private fun openAdvanced() {
         AppLog.info("Guide", "Opening advanced setup screen.")
-        startActivity(Intent(this, MainActivity::class.java))
+        AppNavigation.openScreen(this, MainActivity::class.java)
     }
 
     private fun openUrl(url: String) {
         AppLog.info("Guide", "Opening support page: $url")
-        startActivity(
-                Intent(this, BrowserActivity::class.java).putExtra(BrowserActivity.EXTRA_URL, url)
-        )
+        AppNavigation.openBrowser(this, url)
     }
 
     private fun startPolling() {
@@ -609,14 +607,14 @@ class GuideActivity : ComponentActivity() {
             }
 
             runOnUiThread {
+                if (isDestroyed || isFinishing) {
+                    return@runOnUiThread
+                }
                 setBusy(false)
                 browserUrl
                         .onSuccess { url ->
                             AppLog.info("Guide", "MBF browser launched successfully.")
-                            startActivity(
-                                    Intent(this, BrowserActivity::class.java)
-                                            .putExtra(BrowserActivity.EXTRA_URL, url)
-                            )
+                            AppNavigation.openBrowser(this, url)
                         }
                         .onFailure {
                             AppLog.error(

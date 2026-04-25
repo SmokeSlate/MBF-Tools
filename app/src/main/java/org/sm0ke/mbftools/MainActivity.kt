@@ -39,6 +39,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var debugPortInput: EditText
     private lateinit var gameIdInput: EditText
     private lateinit var launchMbfButton: Button
+    private lateinit var deviceSettingsMenuButton: Button
     private lateinit var advancedLogView: TextView
     private lateinit var advancedLogScroll: ScrollView
     private lateinit var shareDebugLogsButton: Button
@@ -60,6 +61,7 @@ class MainActivity : ComponentActivity() {
         debugPortInput = findViewById(R.id.inputDebugPort)
         gameIdInput = findViewById(R.id.inputGameId)
         launchMbfButton = findViewById(R.id.btnLaunchIntegratedMbf)
+        deviceSettingsMenuButton = findViewById(R.id.btnDeviceSettingsMenu)
         advancedLogView = findViewById(R.id.txtAdvancedLog)
         advancedLogScroll = findViewById(R.id.scrollAdvancedLog)
         shareDebugLogsButton = findViewById(R.id.btnShareDebugLogs)
@@ -99,6 +101,7 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+        deviceSettingsMenuButton.setOnClickListener { showDeviceSettingsMenu() }
 
         findViewById<Button>(R.id.btnRefreshConnection).setOnClickListener {
             appendLog("Refreshing headset connection state.")
@@ -158,6 +161,9 @@ class MainActivity : ComponentActivity() {
             connectedDeviceName = device?.name
 
             runOnUiThread {
+                if (isDestroyed || isFinishing) {
+                    return@runOnUiThread
+                }
                 if (device != null) {
                     updateStatusValue(
                             connectionStatusValue,
@@ -244,6 +250,9 @@ class MainActivity : ComponentActivity() {
                     }
 
             runOnUiThread {
+                if (isDestroyed || isFinishing) {
+                    return@runOnUiThread
+                }
                 setBusy(false)
                 if (enteredPairingPort == null && pairingPort > 0) {
                     autofillPairingPort(pairingPort)
@@ -282,6 +291,9 @@ class MainActivity : ComponentActivity() {
         runAsync {
             val port = runCatching { AdbManager.detectPairingPort(this) }.getOrDefault(0)
             runOnUiThread {
+                if (isDestroyed || isFinishing) {
+                    return@runOnUiThread
+                }
                 setBusy(false)
                 if (port > 0) {
                     autofillPairingPort(port)
@@ -301,6 +313,9 @@ class MainActivity : ComponentActivity() {
         runAsync {
             val port = runCatching { AdbManager.detectDebugPort(this) }.getOrDefault(0)
             runOnUiThread {
+                if (isDestroyed || isFinishing) {
+                    return@runOnUiThread
+                }
                 setBusy(false)
                 if (port > 0) {
                     autofillDebugPort(port)
@@ -327,6 +342,9 @@ class MainActivity : ComponentActivity() {
         runAsync {
             val connectAttempt = connectWithRecoveredDebugPort(debugPort)
             runOnUiThread {
+                if (isDestroyed || isFinishing) {
+                    return@runOnUiThread
+                }
                 setBusy(false)
                 if (connectAttempt.redetectedPort != null) {
                     autofillDebugPort(connectAttempt.finalPort, force = true)
@@ -409,6 +427,9 @@ class MainActivity : ComponentActivity() {
                                     .getOrNull()
             if (device == null) {
                 runOnUiThread {
+                    if (isDestroyed || isFinishing) {
+                        return@runOnUiThread
+                    }
                     setBusy(false)
                     refreshState()
                     appendLog("Launch blocked because no headset is connected.")
@@ -427,14 +448,15 @@ class MainActivity : ComponentActivity() {
             }
 
             runOnUiThread {
+                if (isDestroyed || isFinishing) {
+                    return@runOnUiThread
+                }
                 setBusy(false)
                 browserUrl
                         .onSuccess { url ->
                             appendLog("MBF bridge ready. Opening in-app browser.")
                             updateLogView()
-                            val intent = Intent(this, BrowserActivity::class.java)
-                            intent.putExtra(BrowserActivity.EXTRA_URL, url)
-                            startActivity(intent)
+                            AppNavigation.openBrowser(this, url)
                         }
                         .onFailure {
                             appendLog(
@@ -456,8 +478,172 @@ class MainActivity : ComponentActivity() {
         findViewById<Button>(R.id.btnResetSettings).isEnabled = !isBusy
         findViewById<Button>(R.id.btnOpenDeveloperSettings).isEnabled = !isBusy
         findViewById<Button>(R.id.btnOpenSettings).isEnabled = !isBusy
+        deviceSettingsMenuButton.isEnabled = !isBusy
         shareDebugLogsButton.isEnabled = !isBusy
         launchMbfButton.isEnabled = !isBusy && connectedDeviceName != null
+    }
+
+    private fun showDeviceSettingsMenu() {
+        val items =
+                arrayOf(
+                        getString(R.string.device_settings_refresh_rate),
+                        getString(R.string.device_settings_brightness),
+                        getString(R.string.device_settings_animation_scale),
+                        getString(R.string.device_settings_display_page)
+                )
+        AlertDialog.Builder(this)
+                .setTitle(R.string.device_settings_title)
+                .setItems(items) { _, which ->
+                    when (which) {
+                        0 -> showRefreshRateMenu()
+                        1 -> showBrightnessMenu()
+                        2 -> showAnimationScaleMenu()
+                        else -> {
+                            appendLog("Opening Android Display Settings.")
+                            if (!openDisplaySettings()) {
+                                toast(
+                                        getString(
+                                                R.string.toast_could_not_open,
+                                                getString(R.string.target_display_settings)
+                                        )
+                                )
+                            }
+                        }
+                    }
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+    }
+
+    private fun showRefreshRateMenu() {
+        val labels =
+                arrayOf(
+                        getString(R.string.device_settings_refresh_60),
+                        getString(R.string.device_settings_refresh_72),
+                        getString(R.string.device_settings_refresh_90),
+                        getString(R.string.device_settings_refresh_120)
+                )
+        val values = arrayOf("60", "72", "90", "120")
+        AlertDialog.Builder(this)
+                .setTitle(R.string.device_settings_refresh_title)
+                .setItems(labels) { _, which ->
+                    applyDeviceSetting(
+                            labels[which],
+                            listOf(listOf("setprop", "debug.oculus.refreshRate", values[which]))
+                    )
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+    }
+
+    private fun showBrightnessMenu() {
+        val labels =
+                arrayOf(
+                        getString(R.string.device_settings_brightness_low),
+                        getString(R.string.device_settings_brightness_medium),
+                        getString(R.string.device_settings_brightness_high),
+                        getString(R.string.device_settings_brightness_max)
+                )
+        val values = arrayOf("40", "110", "180", "255")
+        AlertDialog.Builder(this)
+                .setTitle(R.string.device_settings_brightness_title)
+                .setItems(labels) { _, which ->
+                    applyDeviceSetting(
+                            labels[which],
+                            listOf(
+                                    listOf("settings", "put", "system", "screen_brightness_mode", "0"),
+                                    listOf("settings", "put", "system", "screen_brightness", values[which])
+                            )
+                    )
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+    }
+
+    private fun showAnimationScaleMenu() {
+        val labels =
+                arrayOf(
+                        getString(R.string.device_settings_animation_off),
+                        getString(R.string.device_settings_animation_half),
+                        getString(R.string.device_settings_animation_normal)
+                )
+        val values = arrayOf("0", "0.5", "1.0")
+        AlertDialog.Builder(this)
+                .setTitle(R.string.device_settings_animation_title)
+                .setItems(labels) { _, which ->
+                    applyDeviceSetting(
+                            labels[which],
+                            listOf(
+                                    listOf("settings", "put", "global", "window_animation_scale", values[which]),
+                                    listOf("settings", "put", "global", "transition_animation_scale", values[which]),
+                                    listOf("settings", "put", "global", "animator_duration_scale", values[which])
+                            )
+                    )
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+    }
+
+    private fun applyDeviceSetting(label: String, commands: List<List<String>>) {
+        appendLog("Applying device setting: $label.")
+        setBusy(true)
+        runAsync {
+            val device =
+                    connectedDeviceName
+                            ?: runCatching {
+                                        AdbManager.getAuthorizedDevices(this).firstOrNull()?.name
+                                    }
+                                    .getOrNull()
+            val result =
+                    if (device.isNullOrBlank()) {
+                        Result.failure(
+                                IllegalStateException(
+                                        getString(R.string.device_settings_requires_connection)
+                                )
+                        )
+                    } else {
+                        runCatching {
+                            commands.forEach { command ->
+                                val output = AdbManager.shellArgs(this, device, command)
+                                if (output.exitCode != 0) {
+                                    throw IllegalStateException(
+                                            output.bestMessage(
+                                                    getString(
+                                                            R.string.device_settings_failed,
+                                                            label
+                                                    )
+                                            )
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+            runOnUiThread {
+                if (isDestroyed || isFinishing) {
+                    return@runOnUiThread
+                }
+                setBusy(false)
+                result
+                        .onSuccess {
+                            appendLog("Applied device setting: $label.")
+                            toast(getString(R.string.device_settings_applied, label))
+                        }
+                        .onFailure {
+                            appendLog(
+                                    "Failed to apply device setting $label: ${it.message ?: "unknown"}"
+                            )
+                            toast(
+                                    it.message
+                                            ?: getString(
+                                                    R.string.device_settings_failed,
+                                                    label
+                                            )
+                            )
+                        }
+                updateLogView()
+            }
+        }
     }
 
     private fun updateStatusValue(
@@ -602,6 +788,33 @@ class MainActivity : ComponentActivity() {
 
         if (launched && showToast) {
             toast(getString(R.string.toast_opened, getString(R.string.target_settings_app_info)))
+        }
+
+        return launched
+    }
+
+    private fun openDisplaySettings(showToast: Boolean = true): Boolean {
+        val launched =
+                launchFirstAvailable(
+                        listOf(
+                                Intent(Settings.ACTION_DISPLAY_SETTINGS).apply {
+                                    `package` = SETTINGS_PACKAGE
+                                    addFlags(
+                                            Intent.FLAG_ACTIVITY_NEW_TASK or
+                                                    Intent.FLAG_ACTIVITY_TASK_ON_HOME
+                                    )
+                                },
+                                Intent(Settings.ACTION_DISPLAY_SETTINGS).apply {
+                                    addFlags(
+                                            Intent.FLAG_ACTIVITY_NEW_TASK or
+                                                    Intent.FLAG_ACTIVITY_TASK_ON_HOME
+                                    )
+                                }
+                        )
+                )
+
+        if (launched && showToast) {
+            toast(getString(R.string.toast_opened, getString(R.string.target_display_settings)))
         }
 
         return launched

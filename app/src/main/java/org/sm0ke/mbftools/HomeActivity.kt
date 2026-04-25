@@ -1,6 +1,5 @@
 package org.sm0ke.mbftools
 
-import android.content.Intent
 import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
@@ -63,10 +62,10 @@ class HomeActivity : ComponentActivity() {
         openFixButton.setOnClickListener { openUrl(FIX_FORM_URL) }
         openFaqButton.setOnClickListener { openUrl(FAQ_PAGE_URL) }
         openGuideButton.setOnClickListener {
-            startActivity(Intent(this, GuideActivity::class.java))
+            AppNavigation.openScreen(this, GuideActivity::class.java)
         }
         openAdvancedButton.setOnClickListener {
-            startActivity(Intent(this, MainActivity::class.java))
+            AppNavigation.openScreen(this, MainActivity::class.java)
         }
         shareDebugLogsButton.setOnClickListener {
             DebugShareHelper.share(
@@ -126,7 +125,6 @@ class HomeActivity : ComponentActivity() {
                 )
                 val reconnectResult = autoReconnectAfterSetup()
                 if (reconnectResult.connectedDeviceName != null) {
-                    device = AdbDevice(reconnectResult.connectedDeviceName, true)
                     connectedDeviceName = reconnectResult.connectedDeviceName
                     AppLog.info(
                             "Home",
@@ -146,6 +144,9 @@ class HomeActivity : ComponentActivity() {
             }
 
             runOnUiThread {
+                if (isDestroyed || isFinishing) {
+                    return@runOnUiThread
+                }
                 if (redirectToWirelessRequiredIfNeeded()) {
                     return@runOnUiThread
                 }
@@ -182,7 +183,7 @@ class HomeActivity : ComponentActivity() {
             return false
         }
         AppLog.warn("Home", "Wireless Debugging is disabled after setup. Redirecting to blocker screen.")
-        startActivity(Intent(this, WirelessDebugRequiredActivity::class.java))
+        AppNavigation.openScreen(this, WirelessDebugRequiredActivity::class.java)
         finish()
         return true
     }
@@ -325,13 +326,13 @@ class HomeActivity : ComponentActivity() {
             }
 
             runOnUiThread {
+                if (isDestroyed || isFinishing) {
+                    return@runOnUiThread
+                }
                 browserUrl
                         .onSuccess { url ->
                             AppLog.info("Home", "MBF browser launched successfully.")
-                            startActivity(
-                                    Intent(this, BrowserActivity::class.java)
-                                            .putExtra(BrowserActivity.EXTRA_URL, url)
-                            )
+                            AppNavigation.openBrowser(this, url)
                         }
                         .onFailure {
                             AppLog.error(
@@ -346,9 +347,7 @@ class HomeActivity : ComponentActivity() {
 
     private fun openUrl(url: String) {
         AppLog.info("Home", "Opening support page: $url")
-        startActivity(
-                Intent(this, BrowserActivity::class.java).putExtra(BrowserActivity.EXTRA_URL, url)
-        )
+        AppNavigation.openBrowser(this, url)
     }
 
     private fun buildBrowserUrl(baseUrl: String): String {
