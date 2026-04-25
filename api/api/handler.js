@@ -190,7 +190,7 @@ async function handleAiFix(env, url, code, corsHeaders) {
       `Mods count: ${mods.count || 0}`,
       `Current guide step: ${setup.currentGuideStep || 'none'}`,
     ].join('\n');
-    const aiRes = await fetch(`https://gen.pollinations.ai/text/${encodeURIComponent(prompt)}`, { signal: AbortSignal.timeout(20000) });
+    const aiRes = await fetch(`https://text.pollinations.ai/${encodeURIComponent(prompt)}`, { signal: AbortSignal.timeout(20000) });
     if (!aiRes.ok) throw new Error(`Pollinations returned ${aiRes.status}`);
     const fix = await aiRes.text();
     return jsonResponse({ ok: true, code, fix: fix.trim() }, 200, corsHeaders);
@@ -317,11 +317,11 @@ const BASE_STYLE = `
   .btn:hover::after{opacity:1;}
   .btn-danger{background:#b30a0a;} .btn-danger::after{background:#d10a0a;}
   .btn-sm{padding:5px 12px;font-size:13px;}
-  .tab-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
-  .tab{background:#191919;border:0;border-radius:10px;color:#fff;font-weight:500;padding:10px 16px;cursor:pointer;font-family:inherit;font-size:14px;user-select:none;text-transform:capitalize;position:relative;isolation:isolate;overflow:hidden;}
-  .tab::after{content:'';position:absolute;inset:0;background:#1127f3;opacity:0;transition:opacity .2s;z-index:-1;}
-  .tab:hover::after{opacity:1;}
-  .tab.active{background:#1127f3;cursor:default;}
+  .tab-bar{display:flex;flex-wrap:wrap;gap:2px;align-items:flex-end;padding:0 4px;}
+  .tab{background:#111;border:1px solid #2a2a2a;border-bottom:none;border-radius:8px 8px 0 0;color:#aaa;font-weight:500;padding:9px 15px;cursor:pointer;font-family:inherit;font-size:13px;user-select:none;text-transform:capitalize;transition:background .15s,color .15s;white-space:nowrap;margin-bottom:-1px;position:relative;z-index:0;}
+  .tab:hover{background:#1a1a1a;color:#fff;}
+  .tab.active{background:#000000f2;border-color:#333;color:#fff;z-index:2;cursor:default;}
+  .tab-content{border:1px solid #333;border-radius:0 8px 8px 8px;background:#000000f2;padding:16px;position:relative;z-index:1;}
   .tab-panel{display:none;} .tab-panel.active{display:block;}
   .badge{display:inline-flex;align-items:center;gap:4px;border-radius:10px;padding:4px 10px;font-size:12px;font-weight:700;}
   .badge-ok{background:#00543380;color:#5fffb0;}
@@ -526,90 +526,89 @@ function renderViewerPage_(record, baseUrl) {
             <div class="stat-box"><div class="stat-label">Warnings</div><div class="stat-value" style="color:${Number(logStats.warnCount||0)>0?'#ffc43a':'#fff'}">${escapeHtml_(String(Number(logStats.warnCount || 0)))}</div></div>
             <div class="stat-box"><div class="stat-label">BS log lines</div><div class="stat-value">${escapeHtml_(String(Number(beatSaberLogs.lineCount || 0)))}</div></div>
           </div>
-          <!-- Tabs -->
-          <div class="tab-row" style="margin-top:14px;">
-            <button class="tab active" type="button" data-tab="tab-overview">Overview</button>
-            <button class="tab" type="button" data-tab="tab-setup">Setup</button>
-            <button class="tab" type="button" data-tab="tab-mods">Mods</button>
-            <button class="tab" type="button" data-tab="tab-bslogs">Beat Saber Logs</button>
-            <button class="tab" type="button" data-tab="tab-applogs">App Logs</button>
-            <button class="tab" type="button" data-tab="tab-aifix">AI Fix ✨</button>
-            <button class="tab" type="button" data-tab="tab-json">Raw JSON</button>
-          </div>
+        <!-- Browser tabs -->
+        <div class="tab-bar" style="margin-top:14px;">
+          <button class="tab active" type="button" data-tab="tab-overview">Overview</button>
+          <button class="tab" type="button" data-tab="tab-setup">Setup</button>
+          <button class="tab" type="button" data-tab="tab-mods">Mods</button>
+          <button class="tab" type="button" data-tab="tab-bslogs">Beat Saber Logs</button>
+          <button class="tab" type="button" data-tab="tab-applogs">App Logs</button>
+          <button class="tab" type="button" data-tab="tab-aifix">AI Fix ✨</button>
+          <button class="tab" type="button" data-tab="tab-json">Raw JSON</button>
         </div>
+        </div><!-- end .container (header) -->
 
-        <!-- Tab panels -->
-        <div id="tab-overview" class="tab-panel active">
-          <div class="grid2">
-            <div class="container"><div class="section-title">Inferred issues</div>${issueList}</div>
-            <div class="container"><div class="section-title">Recent app problems</div>${problemList}</div>
-            <div class="container"><div class="section-title">Beat Saber log highlights</div>${beatSaberProblems}</div>
-            <div class="container"><div class="section-title">Quick facts</div>
-              <div class="fact-row"><span class="fact-key">Pairing port</span><span class="fact-val">${escapeHtml_(String(setup.pairingPort || 'Unknown'))}</span></div>
-              <div class="fact-row"><span class="fact-key">Debug port</span><span class="fact-val">${escapeHtml_(String(setup.debugPort || 'Unknown'))}</span></div>
-              <div class="fact-row"><span class="fact-key">Package</span><span class="fact-val">${escapeHtml_(beatSaber.packageName || 'Unknown')}</span></div>
-              <div class="fact-row"><span class="fact-key">Version</span><span class="fact-val">${escapeHtml_(beatSaber.versionName || 'Unknown')}</span></div>
+        <!-- Tab panels — each inside the shared tab-content border -->
+        <div class="tab-content">
+          <div id="tab-overview" class="tab-panel active">
+            <div class="grid2">
+              <div><div class="section-title">Inferred issues</div>${issueList}</div>
+              <div><div class="section-title">Recent app problems</div>${problemList}</div>
+              <div><div class="section-title">Beat Saber log highlights</div>${beatSaberProblems}</div>
+              <div><div class="section-title">Quick facts</div>
+                <div class="fact-row"><span class="fact-key">Pairing port</span><span class="fact-val">${escapeHtml_(String(setup.pairingPort || 'Unknown'))}</span></div>
+                <div class="fact-row"><span class="fact-key">Debug port</span><span class="fact-val">${escapeHtml_(String(setup.debugPort || 'Unknown'))}</span></div>
+                <div class="fact-row"><span class="fact-key">Package</span><span class="fact-val">${escapeHtml_(beatSaber.packageName || 'Unknown')}</span></div>
+                <div class="fact-row"><span class="fact-key">Version</span><span class="fact-val">${escapeHtml_(beatSaber.versionName || 'Unknown')}</span></div>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div id="tab-setup" class="tab-panel">
-          <div class="grid2">
-            <div class="container"><div class="section-title">Setup status</div>
-              <div class="fact-row"><span class="fact-key">Developer mode</span><span class="fact-val">${escapeHtml_(setup.developerModeEnabled ? 'On' : 'Off')}</span></div>
-              <div class="fact-row"><span class="fact-key">Wireless Debugging</span><span class="fact-val">${escapeHtml_(setup.wirelessDebuggingEnabled ? 'On' : 'Off')}</span></div>
-              <div class="fact-row"><span class="fact-key">Connected device</span><span class="fact-val">${escapeHtml_(setup.connectedDevice || 'Not connected')}</span></div>
-              <div class="fact-row"><span class="fact-key">Current guide step</span><span class="fact-val">${escapeHtml_(setup.currentGuideStep || 'Not in setup')}</span></div>
-              <div class="fact-row"><span class="fact-key">Pairing port</span><span class="fact-val">${escapeHtml_(String(setup.pairingPort || 'Unknown'))}</span></div>
-              <div class="fact-row"><span class="fact-key">Debug port</span><span class="fact-val">${escapeHtml_(String(setup.debugPort || 'Unknown'))}</span></div>
-            </div>
-            <div class="container"><div class="section-title">Beat Saber status</div>
-              <div class="fact-row"><span class="fact-key">Installed</span><span class="fact-val">${escapeHtml_(beatSaber.installed ? 'Yes' : 'No')}</span></div>
-              <div class="fact-row"><span class="fact-key">Package</span><span class="fact-val">${escapeHtml_(beatSaber.packageName || 'Unknown')}</span></div>
-              <div class="fact-row"><span class="fact-key">Version</span><span class="fact-val">${escapeHtml_(beatSaber.versionName || 'Unknown')}</span></div>
-              <div class="fact-row"><span class="fact-key">Detected mods</span><span class="fact-val">${escapeHtml_(String(Number(mods.count || 0)))}</span></div>
-              <div class="fact-row"><span class="fact-key">Beat Saber log lines</span><span class="fact-val">${escapeHtml_(String(Number(beatSaberLogs.lineCount || 0)))}</span></div>
+          <div id="tab-setup" class="tab-panel">
+            <div class="grid2">
+              <div><div class="section-title">Setup status</div>
+                <div class="fact-row"><span class="fact-key">Developer mode</span><span class="fact-val">${escapeHtml_(setup.developerModeEnabled ? 'On' : 'Off')}</span></div>
+                <div class="fact-row"><span class="fact-key">Wireless Debugging</span><span class="fact-val">${escapeHtml_(setup.wirelessDebuggingEnabled ? 'On' : 'Off')}</span></div>
+                <div class="fact-row"><span class="fact-key">Connected device</span><span class="fact-val">${escapeHtml_(setup.connectedDevice || 'Not connected')}</span></div>
+                <div class="fact-row"><span class="fact-key">Current guide step</span><span class="fact-val">${escapeHtml_(setup.currentGuideStep || 'Not in setup')}</span></div>
+                <div class="fact-row"><span class="fact-key">Pairing port</span><span class="fact-val">${escapeHtml_(String(setup.pairingPort || 'Unknown'))}</span></div>
+                <div class="fact-row"><span class="fact-key">Debug port</span><span class="fact-val">${escapeHtml_(String(setup.debugPort || 'Unknown'))}</span></div>
+              </div>
+              <div><div class="section-title">Beat Saber status</div>
+                <div class="fact-row"><span class="fact-key">Installed</span><span class="fact-val">${escapeHtml_(beatSaber.installed ? 'Yes' : 'No')}</span></div>
+                <div class="fact-row"><span class="fact-key">Package</span><span class="fact-val">${escapeHtml_(beatSaber.packageName || 'Unknown')}</span></div>
+                <div class="fact-row"><span class="fact-key">Version</span><span class="fact-val">${escapeHtml_(beatSaber.versionName || 'Unknown')}</span></div>
+                <div class="fact-row"><span class="fact-key">Detected mods</span><span class="fact-val">${escapeHtml_(String(Number(mods.count || 0)))}</span></div>
+                <div class="fact-row"><span class="fact-key">Beat Saber log lines</span><span class="fact-val">${escapeHtml_(String(Number(beatSaberLogs.lineCount || 0)))}</span></div>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div id="tab-mods" class="tab-panel">
-          <div class="container">
+          <div id="tab-mods" class="tab-panel">
             <div class="section-title">Detected mods &nbsp;<span class="muted">${escapeHtml_(String(Number(mods.count || 0)))} detected</span></div>
             ${modList}
           </div>
-        </div>
 
-        <div id="tab-bslogs" class="tab-panel">
-          <div class="grid2">
-            <div class="container"><div class="section-title">Beat Saber log highlights</div>${beatSaberProblems}</div>
-            <div class="container"><div class="section-title">Beat Saber logs</div>
-              ${beatSaberLogLines.length > 0 ? `<pre>${escapeHtml_(beatSaberLogLines.join('\n'))}</pre>` : '<p class="muted">No Beat Saber log lines were included in this upload.</p>'}
+          <div id="tab-bslogs" class="tab-panel">
+            <div class="grid2">
+              <div><div class="section-title">Beat Saber log highlights</div>${beatSaberProblems}</div>
+              <div><div class="section-title">Beat Saber logs</div>
+                ${beatSaberLogLines.length > 0 ? `<pre>${escapeHtml_(beatSaberLogLines.join('\n'))}</pre>` : '<p class="muted">No Beat Saber log lines were included in this upload.</p>'}
+              </div>
             </div>
           </div>
-        </div>
 
-        <div id="tab-applogs" class="tab-panel">
-          <div class="grid2">
-            <div class="container"><div class="section-title">Recent app problems</div>${problemList}</div>
-            <div class="container"><div class="section-title">App log output</div>
-              ${logsText.trim() ? `<pre>${escapeHtml_(logsText)}</pre>` : '<p class="muted">No app log output was included in this upload.</p>'}
+          <div id="tab-applogs" class="tab-panel">
+            <div class="grid2">
+              <div><div class="section-title">Recent app problems</div>${problemList}</div>
+              <div><div class="section-title">App log output</div>
+                ${logsText.trim() ? `<pre>${escapeHtml_(logsText)}</pre>` : '<p class="muted">No app log output was included in this upload.</p>'}
+              </div>
             </div>
           </div>
-        </div>
 
-        <div id="tab-aifix" class="tab-panel">
-          <div class="container">
+          <div id="tab-aifix" class="tab-panel">
             <div class="section-title">AI Fix Suggestions ✨</div>
             <p class="muted" style="margin:0 0 12px;">AI-powered step-by-step fix instructions based on the detected issues.</p>
             <button class="btn" id="ai-fix-btn" type="button" style="margin-bottom:14px;">Generate AI Fix</button>
             <div id="ai-fix-output" style="display:none;"><div class="ai-result" id="ai-fix-text"></div></div>
           </div>
-        </div>
 
-        <div id="tab-json" class="tab-panel">
-          <div class="container"><div class="section-title">Raw JSON</div><pre>${escapeHtml_(rawJson)}</pre></div>
-        </div>
+          <div id="tab-json" class="tab-panel">
+            <div class="section-title">Raw JSON</div>
+            <pre>${escapeHtml_(rawJson)}</pre>
+          </div>
+        </div><!-- end .tab-content -->
 
       </div>
     </div>
