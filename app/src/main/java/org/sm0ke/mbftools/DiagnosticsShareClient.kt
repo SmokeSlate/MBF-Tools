@@ -18,7 +18,7 @@ data class SharedLogReceipt(
 object DiagnosticsShareClient {
     fun upload(backendUrl: String, payload: JSONObject): SharedLogReceipt {
         val normalizedUrl = backendUrl.trim()
-        require(normalizedUrl.isNotBlank()) { "Enter the Apps Script web app URL first." }
+        require(normalizedUrl.isNotBlank()) { "Enter the log backend URL first." }
 
         val connection = (URL(normalizedUrl).openConnection() as HttpURLConnection)
         connection.requestMethod = "POST"
