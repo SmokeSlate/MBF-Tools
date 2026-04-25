@@ -317,9 +317,10 @@ const BASE_STYLE = `
   .btn:hover::after{opacity:1;}
   .btn-danger{background:#b30a0a;} .btn-danger::after{background:#d10a0a;}
   .btn-sm{padding:5px 12px;font-size:13px;}
-  .tab-bar{display:flex;flex-wrap:wrap;gap:2px;align-items:flex-end;padding:0 4px;}
-  .tab{background:#111;border:1px solid #2a2a2a;border-bottom:none;border-radius:8px 8px 0 0;color:#aaa;font-weight:500;padding:9px 15px;cursor:pointer;font-family:inherit;font-size:13px;user-select:none;text-transform:capitalize;transition:background .15s,color .15s;white-space:nowrap;margin-bottom:-1px;position:relative;z-index:0;}
-  .tab:hover{background:#1a1a1a;color:#fff;}
+  .container{background:#000000f2;padding:16px;margin:0;border-radius:10px;}
+  .tab-bar{display:flex;flex-wrap:wrap;gap:2px;align-items:flex-end;padding:0 2px;margin-top:8px;}
+  .tab{background:#111;border:1px solid #2a2a2a;border-bottom:none;border-radius:8px 8px 0 0;color:#aaa;font-weight:500;padding:9px 16px;cursor:pointer;font-family:inherit;font-size:13px;user-select:none;text-transform:capitalize;transition:background .15s,color .15s;white-space:nowrap;margin-bottom:-1px;position:relative;z-index:0;}
+  .tab:hover{background:#1d1d1d;color:#fff;}
   .tab.active{background:#000000f2;border-color:#333;color:#fff;z-index:2;cursor:default;}
   .tab-content{border:1px solid #333;border-radius:0 8px 8px 8px;background:#000000f2;padding:16px;position:relative;z-index:1;}
   .tab-panel{display:none;} .tab-panel.active{display:block;}
@@ -505,7 +506,7 @@ function renderViewerPage_(record, baseUrl) {
       <div class="main">
 
         <!-- Header -->
-        <div class="container" style="margin-bottom:8px;">
+        <div class="container">
           <h1 style="font-size:22px;margin-bottom:6px;">MBF Tools Debug Viewer</h1>
           <p style="margin:0 0 10px;font-size:15px;color:#cde;">${escapeHtml_(record.summary || 'No short summary is available.')}</p>
           <p class="muted" style="margin:0 0 12px;">Code: <code style="font-family:Consolas,monospace;background:#111;padding:1px 5px;border-radius:4px;">${escapeHtml_(record.code || '')}</code> &nbsp;·&nbsp; Command: <code style="font-family:Consolas,monospace;background:#111;padding:1px 5px;border-radius:4px;">${escapeHtml_(record.command || '')}</code> &nbsp;·&nbsp; ${escapeHtml_(record.createdAt || '')}</p>
@@ -525,8 +526,10 @@ function renderViewerPage_(record, baseUrl) {
             <div class="stat-box"><div class="stat-label">Warnings</div><div class="stat-value" style="color:${Number(logStats.warnCount||0)>0?'#ffc43a':'#fff'}">${escapeHtml_(String(Number(logStats.warnCount || 0)))}</div></div>
             <div class="stat-box"><div class="stat-label">BS log lines</div><div class="stat-value">${escapeHtml_(String(Number(beatSaberLogs.lineCount || 0)))}</div></div>
           </div>
-        <!-- Browser tabs -->
-        <div class="tab-bar" style="margin-top:14px;">
+        </div><!-- end .container (header) -->
+
+        <!-- Browser tabs — standalone strip between header and content -->
+        <div class="tab-bar">
           <button class="tab active" type="button" data-tab="tab-overview">Overview</button>
           <button class="tab" type="button" data-tab="tab-setup">Setup</button>
           <button class="tab" type="button" data-tab="tab-mods">Mods</button>
@@ -534,7 +537,6 @@ function renderViewerPage_(record, baseUrl) {
           <button class="tab" type="button" data-tab="tab-applogs">App Logs</button>
           <button class="tab" type="button" data-tab="tab-json">Raw JSON</button>
         </div>
-        </div><!-- end .container (header) -->
 
         <!-- Tab panels — each inside the shared tab-content border -->
         <div class="tab-content">
