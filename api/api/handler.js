@@ -16,10 +16,10 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
 
-    const action = (url.searchParams.get('action') || '').trim().toLowerCase();
+    const path = url.pathname.replace(/\/+$/, '') || '/';
 
-    if (action === 'admin' || action === 'admin-login' || action === 'admin-delete') {
-      return handleAdmin(request, env, url);
+    if (path === '/admin' || path === '/admin/login' || path === '/admin/delete') {
+      return handleAdmin(request, env, url, path);
     }
 
     if (request.method === 'POST') {
@@ -36,10 +36,8 @@ export default {
 
 // ─── Admin ────────────────────────────────────────────────────────────────────
 
-async function handleAdmin(request, env, url) {
-  const action = url.searchParams.get('action');
-
-  if (action === 'admin-login') {
+async function handleAdmin(request, env, url, path) {
+  if (path === '/admin/login') {
     if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
     const form = await request.formData();
     const password = form.get('password') || '';
@@ -50,7 +48,7 @@ async function handleAdmin(request, env, url) {
     return new Response(null, {
       status: 302,
       headers: {
-        Location: '/?action=admin',
+        Location: '/admin',
         'Set-Cookie': `${ADMIN_COOKIE}=${ADMIN_HASH}; HttpOnly; Secure; SameSite=Strict; Max-Age=86400; Path=/`,
       },
     });
@@ -60,12 +58,12 @@ async function handleAdmin(request, env, url) {
     return htmlResponse(renderAdminLogin_());
   }
 
-  if (action === 'admin-delete') {
+  if (path === '/admin/delete') {
     if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
     const form = await request.formData();
     const code = (form.get('code') || '').trim().toLowerCase();
     if (code) await env.LOGS.delete(`log:${code}`);
-    return new Response(null, { status: 302, headers: { Location: '/?action=admin' } });
+    return new Response(null, { status: 302, headers: { Location: '/admin' } });
   }
 
   // Browse logs
@@ -312,7 +310,7 @@ function renderAdminLogin_(error = '') {
     <h1>MBF Tools Admin</h1>
     <p class="muted">Enter the admin password to continue.</p>
     ${error ? `<p class="error">${escapeHtml_(error)}</p>` : ''}
-    <form method="POST" action="/?action=admin-login">
+    <form method="POST" action="/admin/login">
       <input type="password" name="password" placeholder="Password" autofocus required/>
       <button class="btn" type="submit">Sign in</button>
     </form>
@@ -329,7 +327,7 @@ function renderAdminPage_(rows, nextCursor) {
         <td style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml_(r.summary || '—')}</td>
         <td style="white-space:nowrap;display:flex;gap:8px;align-items:center;">
           <a href="/?action=view&code=${encodeURIComponent(r.code)}" target="_blank"><button class="btn btn-sm" type="button">View</button></a>
-          <form method="POST" action="/?action=admin-delete" style="display:inline;" onsubmit="return confirm('Delete log ${escapeHtml_(r.code)}?')">
+          <form method="POST" action="/admin/delete" style="display:inline;" onsubmit="return confirm('Delete log ${escapeHtml_(r.code)}?')">
             <input type="hidden" name="code" value="${escapeHtml_(r.code)}"/>
             <button class="btn btn-sm btn-danger" type="submit">Delete</button>
           </form>
@@ -357,7 +355,7 @@ function renderAdminPage_(rows, nextCursor) {
           <tbody>${rowsHtml}</tbody>
         </table>
       </div>
-      ${nextCursor ? `<div style="margin-top:16px;"><a href="/?action=admin&cursor=${encodeURIComponent(nextCursor)}"><button class="btn" type="button">Load more</button></a></div>` : ''}
+      ${nextCursor ? `<div style="margin-top:16px;"><a href="/admin?cursor=${encodeURIComponent(nextCursor)}"><button class="btn" type="button">Load more</button></a></div>` : ''}
     </div>
   </div></body></html>`;
 }
