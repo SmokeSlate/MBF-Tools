@@ -284,80 +284,105 @@ function escapeHtml_(value) {
   return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-// ─── Admin HTML ───────────────────────────────────────────────────────────────
+// ─── Shared styles (MBF aesthetic) ───────────────────────────────────────────
 
-const SHARED_STYLE = `
-  :root{color-scheme:dark}
-  body{margin:0;font-family:"Segoe UI",sans-serif;background:radial-gradient(circle at top,rgba(54,139,255,0.22),transparent 34%),linear-gradient(180deg,#081626 0%,#0f2134 100%);color:#eaf4ff;min-height:100vh;}
-  .page{max-width:1100px;margin:0 auto;padding:24px;}
-  .card{background:rgba(6,17,30,0.82);border:1px solid rgba(146,198,255,0.22);border-radius:20px;padding:28px;box-shadow:0 16px 48px rgba(0,0,0,0.22);}
-  h1{margin:0 0 6px 0;} h2{margin:0 0 14px 0;font-size:20px;}
-  .muted{color:#a7bfd8;font-size:14px;}
-  input[type=password]{width:100%;box-sizing:border-box;background:rgba(14,31,50,0.9);border:1px solid rgba(146,198,255,0.28);border-radius:10px;padding:12px 14px;color:#eaf4ff;font-size:15px;margin:14px 0 16px;}
-  input[type=password]:focus{outline:none;border-color:rgba(146,198,255,0.6);}
-  .btn{appearance:none;border:1px solid rgba(162,212,255,0.4);background:linear-gradient(180deg,#2d79dd 0%,#215cad 100%);color:#fff;border-radius:999px;padding:11px 22px;cursor:pointer;font-size:14px;font-weight:600;}
-  .btn:hover{filter:brightness(1.1);}
-  .btn-danger{background:linear-gradient(180deg,#c0392b 0%,#922b21 100%);border-color:rgba(255,140,140,0.4);}
-  .btn-sm{padding:6px 14px;font-size:13px;}
-  .error{color:#ff9999;margin-bottom:14px;font-size:14px;}
-  a{color:#7ec8ff;text-decoration:none;} a:hover{text-decoration:underline;}
+const BASE_STYLE = `
+  @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+  *{box-sizing:border-box;}
+  :root{color-scheme:dark;}
+  body{margin:0;font-family:'Roboto',sans-serif;background:#002040;color:#fff;min-height:100vh;overflow-y:scroll;}
+  h1,h2,h3{margin-top:0;margin-bottom:0;}
+  a{color:#0066ff;font-weight:700;text-decoration:none;} a:hover{text-decoration:underline;}
+  .page{display:flex;flex-direction:column;align-items:center;padding:16px 8px 40px;}
+  .main{width:100%;max-width:min(72rem,98vw);}
+  .container{background:#000000e6;padding:16px;margin:5px 0;border-radius:10px;}
+  .section-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#99d9ea;margin-bottom:10px;}
+  .muted{color:#aaa;font-size:14px;}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:8px;}
+  .grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;}
+  .stat-box{background:#111827;border-radius:10px;padding:12px 14px;}
+  .stat-label{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:#99d9ea;margin-bottom:4px;}
+  .stat-value{font-size:15px;font-weight:500;}
+  .fact-row{display:flex;justify-content:space-between;gap:16px;padding:9px 12px;border-radius:8px;background:#0d1b2a;font-size:14px;margin-bottom:4px;}
+  .fact-key{color:#99d9ea;} .fact-val{text-align:right;font-weight:500;}
+  .btn{background:#444;border:0;border-radius:10px;color:#fff;font-weight:500;padding:8px 16px;cursor:pointer;transition:background .2s;font-family:inherit;font-size:14px;user-select:none;}
+  .btn:hover{background:#0030e0;}
+  .btn-danger{background:#b30a0a;} .btn-danger:hover{background:#d10a0a;}
+  .btn-sm{padding:5px 12px;font-size:13px;}
+  .tab-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+  .tab{background:#191919;border:0;border-radius:10px;color:#fff;font-weight:500;padding:10px 16px;cursor:pointer;transition:background .2s;font-family:inherit;font-size:14px;user-select:none;text-transform:capitalize;}
+  .tab:hover{background:#1022c2;}
+  .tab.active{background:#1127f3;cursor:default;}
+  .tab-panel{display:none;} .tab-panel.active{display:block;}
+  .badge{display:inline-flex;align-items:center;gap:4px;border-radius:10px;padding:4px 10px;font-size:12px;font-weight:700;}
+  .badge-ok{background:#00543380;color:#5fffb0;}
+  .badge-warn{background:#6b4d0080;color:#ffc43a;}
+  .badge-bad{background:#5c000080;color:#ff7070;}
+  .badge-neutral{background:#22303f;color:#aac8e0;}
+  pre{white-space:pre-wrap;word-break:break-word;background:#111;border-radius:8px;padding:12px;overflow:auto;font-family:Consolas,monospace;font-size:13px;line-height:1.5;}
+  ul{margin:8px 0 0 18px;padding:0;} li{line-height:1.6;font-size:14px;}
+  input[type=password]{width:100%;background:#111827;border:1px solid #334;border-radius:10px;padding:11px 14px;color:#fff;font-size:15px;font-family:inherit;margin:10px 0 14px;}
+  input[type=password]:focus{outline:none;border-color:#0066ff;}
+  .error-msg{color:#ff7070;font-size:14px;margin-bottom:10px;}
+  ::-webkit-scrollbar{width:7px;} ::-webkit-scrollbar-track{background:rgba(0,0,0,.2);} ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:5px;}
+  table{width:100%;border-collapse:collapse;}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:#99d9ea;padding:8px 12px;text-align:left;border-bottom:1px solid #1a2a3a;}
+  td{padding:9px 12px;font-size:14px;border-bottom:1px solid #0d1825;vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:rgba(255,255,255,.03);}
+  @media(max-width:600px){.page{padding:8px 4px 32px;}.tab{font-size:13px;padding:8px 12px;}}
 `;
 
+// ─── Admin HTML ───────────────────────────────────────────────────────────────
+
 function renderAdminLogin_(error = '') {
-  return `<!doctype html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Admin — MBF Tools</title>
-  <style>${SHARED_STYLE}</style></head><body><div class="page" style="display:flex;align-items:center;justify-content:center;min-height:100vh;">
-  <div class="card" style="max-width:420px;width:100%;">
-    <h1>MBF Tools Admin</h1>
-    <p class="muted">Enter the admin password to continue.</p>
-    ${error ? `<p class="error">${escapeHtml_(error)}</p>` : ''}
+  return `<!doctype html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="theme-color" content="#99d9ea"/><title>Admin — MBF Tools</title>
+  <style>${BASE_STYLE}
+    .login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;}
+    .login-card{background:#000000e6;border-radius:10px;padding:28px;width:100%;max-width:380px;}
+  </style></head>
+  <body><div class="login-wrap"><div class="login-card">
+    <h1 style="margin-bottom:6px;">MBF Tools</h1>
+    <p class="muted" style="margin:0 0 4px;">Admin panel — enter your password to continue.</p>
+    ${error ? `<p class="error-msg">${escapeHtml_(error)}</p>` : ''}
     <form method="POST" action="/admin/login">
       <input type="password" name="password" placeholder="Password" autofocus required/>
-      <button class="btn" type="submit">Sign in</button>
+      <button class="btn" type="submit" style="width:100%;padding:10px;font-size:15px;">Sign in</button>
     </form>
   </div></div></body></html>`;
 }
 
 function renderAdminPage_(rows, nextCursor) {
   const rowsHtml = rows.length === 0
-    ? '<tr><td colspan="4" style="text-align:center;padding:20px;color:#a7bfd8;">No logs found.</td></tr>'
-    : rows.map(r => `
-      <tr>
-        <td><code>${escapeHtml_(r.code)}</code></td>
-        <td>${escapeHtml_(r.createdAt ? new Date(r.createdAt).toLocaleString() : '—')}</td>
-        <td style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml_(r.summary || '—')}</td>
-        <td style="white-space:nowrap;display:flex;gap:8px;align-items:center;">
+    ? `<tr><td colspan="4" style="text-align:center;padding:24px;color:#aaa;">No logs found.</td></tr>`
+    : rows.map(r => `<tr>
+        <td><code style="font-family:Consolas,monospace;background:#111;padding:2px 6px;border-radius:5px;">${escapeHtml_(r.code)}</code></td>
+        <td style="color:#aaa;">${escapeHtml_(r.createdAt ? new Date(r.createdAt).toLocaleString() : '—')}</td>
+        <td style="max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#cde;">${escapeHtml_(r.summary || '—')}</td>
+        <td><div style="display:flex;gap:6px;align-items:center;">
           <a href="/?action=view&code=${encodeURIComponent(r.code)}" target="_blank"><button class="btn btn-sm" type="button">View</button></a>
-          <form method="POST" action="/admin/delete" style="display:inline;" onsubmit="return confirm('Delete log ${escapeHtml_(r.code)}?')">
+          <form method="POST" action="/admin/delete" style="display:contents;" onsubmit="return confirm('Delete log ${escapeHtml_(r.code)}?')">
             <input type="hidden" name="code" value="${escapeHtml_(r.code)}"/>
             <button class="btn btn-sm btn-danger" type="submit">Delete</button>
           </form>
-        </td>
+        </div></td>
       </tr>`).join('');
 
-  return `<!doctype html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Admin — MBF Tools</title>
-  <style>
-    ${SHARED_STYLE}
-    table{width:100%;border-collapse:collapse;}
-    th,td{padding:11px 14px;text-align:left;border-bottom:1px solid rgba(146,198,255,0.1);}
-    th{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#8cb6dd;}
-    tr:last-child td{border-bottom:none;}
-    tr:hover td{background:rgba(255,255,255,0.03);}
-    .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;}
-  </style></head><body><div class="page">
-    <div class="topbar">
-      <div><h1 style="margin:0">MBF Tools Admin</h1><p class="muted" style="margin:4px 0 0">Shared debug logs</p></div>
+  return `<!doctype html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="theme-color" content="#99d9ea"/><title>Admin — MBF Tools</title>
+  <style>${BASE_STYLE}</style></head>
+  <body><div class="page"><div class="main">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin:8px 0 14px;flex-wrap:wrap;gap:8px;">
+      <div><h1 style="font-size:22px;margin-bottom:4px;">MBF Tools Admin</h1><p class="muted" style="margin:0;">Shared debug logs</p></div>
     </div>
-    <div class="card">
-      <h2>Browse Logs <span class="muted">(${rows.length} shown)</span></h2>
-      <div style="overflow-x:auto;">
-        <table>
-          <thead><tr><th>Code</th><th>Created</th><th>Summary</th><th>Actions</th></tr></thead>
-          <tbody>${rowsHtml}</tbody>
-        </table>
-      </div>
-      ${nextCursor ? `<div style="margin-top:16px;"><a href="/admin?cursor=${encodeURIComponent(nextCursor)}"><button class="btn" type="button">Load more</button></a></div>` : ''}
+    <div class="container">
+      <div class="section-title">Browse Logs <span class="muted">(${rows.length} shown)</span></div>
+      <div style="overflow-x:auto;"><table><thead><tr><th>Code</th><th>Created</th><th>Summary</th><th>Actions</th></tr></thead>
+      <tbody>${rowsHtml}</tbody></table></div>
+      ${nextCursor ? `<div style="margin-top:14px;"><a href="/admin?cursor=${encodeURIComponent(nextCursor)}"><button class="btn" type="button">Load more</button></a></div>` : ''}
     </div>
-  </div></body></html>`;
+  </div></div></body></html>`;
 }
 
 // ─── Viewer HTML ──────────────────────────────────────────────────────────────
@@ -377,14 +402,17 @@ function renderViewerPage_(record, baseUrl) {
   const rawJson = JSON.stringify(record, null, 2);
   const aifixUrl = buildActionUrl_(baseUrl, 'aifix', record.code);
 
+  const pill = (ok, label) => `<span class="badge ${ok ? 'badge-ok' : 'badge-bad'}">${escapeHtml_(label)}</span>`;
+  const bsStatus = beatSaber.installed ? 'badge-ok' : 'badge-warn';
+
   const issueList = Array.isArray(record.issues) && record.issues.length > 0
-    ? `<ul>${record.issues.map(i => `<li>${escapeHtml_(i)}</li>`).join('')}</ul>`
+    ? record.issues.map(i => `<div style="background:#0d1825;border-radius:8px;padding:9px 12px;margin-bottom:5px;font-size:14px;display:flex;gap:8px;align-items:flex-start;"><span style="color:#ff7070;margin-top:1px;">⚠</span><span>${escapeHtml_(i)}</span></div>`).join('')
     : '<p class="muted">No explicit issues were inferred.</p>';
   const problemList = recentProblems.length > 0
     ? `<ul>${recentProblems.map(l => `<li>${escapeHtml_(l)}</li>`).join('')}</ul>`
     : '<p class="muted">No recent warning or error lines were captured.</p>';
   const modList = modItems.length > 0
-    ? `<ul>${modItems.map(i => `<li>${escapeHtml_(i)}</li>`).join('')}</ul>`
+    ? modItems.map(i => `<div style="background:#0d1825;border-radius:8px;padding:8px 12px;margin-bottom:4px;font-size:14px;">${escapeHtml_(i)}</div>`).join('')
     : '<p class="muted">No installed mods were detected.</p>';
   const beatSaberProblems = beatSaberInteresting.length > 0
     ? `<ul>${beatSaberInteresting.map(l => `<li>${escapeHtml_(l)}</li>`).join('')}</ul>`
@@ -395,193 +423,147 @@ function renderViewerPage_(record, baseUrl) {
   <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="theme-color" content="#99d9ea"/>
     <title>MBF Tools Debug Viewer</title>
     <style>
-      :root{color-scheme:dark}
-      body{margin:0;font-family:"Segoe UI",sans-serif;background:radial-gradient(circle at top,rgba(54,139,255,0.22),transparent 34%),linear-gradient(180deg,#081626 0%,#0f2134 100%);color:#eaf4ff;}
-      .page{max-width:1200px;margin:0 auto;padding:24px;}
-      .hero,.panel{background:rgba(6,17,30,0.82);border:1px solid rgba(146,198,255,0.22);border-radius:20px;padding:20px;box-shadow:0 16px 48px rgba(0,0,0,0.22);}
-      .hero{margin-bottom:16px;}
-      .grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));}
-      h1,h2{margin:0 0 10px 0;} h2{font-size:20px;}
-      h3{margin:0 0 8px 0;font-size:14px;color:#d6e7f8;text-transform:uppercase;letter-spacing:.08em;}
-      p,li{line-height:1.5;} .muted{color:#a7bfd8;}
-      .summary{font-size:18px;color:#fff;}
-      .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:14px;}
-      .stat{background:rgba(23,43,67,0.9);border-radius:14px;padding:12px;}
-      .hero-top{display:flex;gap:16px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;}
-      .hero-meta{min-width:280px;flex:0 1 320px;}
-      .status-pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
-      .pill{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:8px 12px;font-size:13px;background:rgba(18,42,68,0.95);border:1px solid rgba(146,198,255,0.18);}
-      .pill.ok{border-color:rgba(112,224,176,0.28);color:#dffbea;}
-      .pill.warn{border-color:rgba(255,191,102,0.26);color:#fff0d5;}
-      .pill.bad{border-color:rgba(255,124,124,0.28);color:#ffe0e0;}
-      .label{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#8cb6dd;}
-      .value{margin-top:6px;font-size:16px;}
-      pre{white-space:pre-wrap;word-break:break-word;background:rgba(1,8,16,0.72);border-radius:14px;padding:14px;overflow:auto;}
-      code{font-family:"Cascadia Code","Consolas",monospace;}
-      ul{margin:10px 0 0 18px;padding:0;}
-      .tabs{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px;}
-      .tab-button{appearance:none;border:1px solid rgba(146,198,255,0.18);background:rgba(14,31,50,0.9);color:#d9ebfd;border-radius:999px;padding:10px 16px;cursor:pointer;font-size:14px;}
-      .tab-button:hover{background:rgba(21,44,70,0.95);border-color:rgba(146,198,255,0.32);}
-      .tab-button.active{background:linear-gradient(180deg,#2d79dd 0%,#215cad 100%);border-color:rgba(162,212,255,0.5);color:#fff;}
-      .tab-panel{display:none;margin-top:16px;} .tab-panel.active{display:block;}
-      .section-stack{display:grid;gap:16px;}
-      .split{display:grid;gap:16px;grid-template-columns:1.2fr 0.8fr;}
-      .empty-state{margin:0;padding:18px;border-radius:14px;background:rgba(1,8,16,0.46);border:1px dashed rgba(146,198,255,0.18);}
-      .facts{display:grid;gap:10px;}
-      .fact{display:flex;justify-content:space-between;gap:16px;padding:12px 14px;border-radius:14px;background:rgba(16,35,56,0.85);}
-      .fact-key{color:#8cb6dd;} .fact-value{text-align:right;}
-      .ai-btn{appearance:none;border:1px solid rgba(162,212,255,0.4);background:linear-gradient(180deg,#2d79dd 0%,#215cad 100%);color:#fff;border-radius:999px;padding:12px 22px;cursor:pointer;font-size:15px;font-weight:600;margin-bottom:16px;}
-      .ai-btn:hover{filter:brightness(1.1);} .ai-btn:disabled{opacity:.55;cursor:default;}
-      .ai-result{white-space:pre-wrap;background:rgba(1,8,16,0.72);border-radius:14px;padding:16px;font-family:"Segoe UI",sans-serif;line-height:1.6;}
-      @media(max-width:860px){.split{grid-template-columns:1fr;}}
-      @media(max-width:640px){.page{padding:16px;}.hero,.panel{padding:16px;border-radius:16px;}.stats{grid-template-columns:repeat(2,minmax(0,1fr));}}
+      ${BASE_STYLE}
+      .ai-result{white-space:pre-wrap;background:#111;border-radius:8px;padding:14px;font-size:14px;line-height:1.6;}
     </style>
   </head>
   <body>
     <div class="page">
-      <div class="hero">
-        <div class="hero-top">
-          <div>
-            <h1>MBF Tools Debug Viewer</h1>
-            <p class="summary">${escapeHtml_(record.summary || 'No short summary is available.')}</p>
-            <p class="muted">Code: <code>${escapeHtml_(record.code || '')}</code> · Command: <code>${escapeHtml_(record.command || '')}</code> · Created: ${escapeHtml_(record.createdAt || '')}</p>
-            <div class="status-pills">
-              <div class="pill ${setup.connectedDevice ? 'ok' : 'bad'}">ADB ${escapeHtml_(setup.connectedDevice ? 'connected' : 'not connected')}</div>
-              <div class="pill ${setup.wirelessDebuggingEnabled ? 'ok' : 'bad'}">Wireless Debugging ${escapeHtml_(setup.wirelessDebuggingEnabled ? 'on' : 'off')}</div>
-              <div class="pill ${setup.developerModeEnabled ? 'ok' : 'bad'}">Developer mode ${escapeHtml_(setup.developerModeEnabled ? 'on' : 'off')}</div>
-              <div class="pill ${beatSaber.installed ? 'ok' : 'warn'}">Beat Saber ${escapeHtml_(beatSaber.installed ? 'installed' : 'not found')}</div>
+      <div class="main">
+
+        <!-- Header -->
+        <div class="container" style="margin-bottom:8px;">
+          <h1 style="font-size:22px;margin-bottom:6px;">MBF Tools Debug Viewer</h1>
+          <p style="margin:0 0 10px;font-size:15px;color:#cde;">${escapeHtml_(record.summary || 'No short summary is available.')}</p>
+          <p class="muted" style="margin:0 0 12px;">Code: <code style="font-family:Consolas,monospace;background:#111;padding:1px 5px;border-radius:4px;">${escapeHtml_(record.code || '')}</code> &nbsp;·&nbsp; Command: <code style="font-family:Consolas,monospace;background:#111;padding:1px 5px;border-radius:4px;">${escapeHtml_(record.command || '')}</code> &nbsp;·&nbsp; ${escapeHtml_(record.createdAt || '')}</p>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">
+            ${pill(!!setup.connectedDevice, 'ADB ' + (setup.connectedDevice ? 'connected' : 'not connected'))}
+            ${pill(!!setup.wirelessDebuggingEnabled, 'Wireless Debugging ' + (setup.wirelessDebuggingEnabled ? 'on' : 'off'))}
+            ${pill(!!setup.developerModeEnabled, 'Developer mode ' + (setup.developerModeEnabled ? 'on' : 'off'))}
+            <span class="badge ${bsStatus}">Beat Saber ${escapeHtml_(beatSaber.installed ? 'installed' : 'not found')}</span>
+          </div>
+          <!-- Stats bar -->
+          <div class="grid4">
+            <div class="stat-box"><div class="stat-label">Guide step</div><div class="stat-value">${escapeHtml_(setup.currentGuideStep || 'Not in setup')}</div></div>
+            <div class="stat-box"><div class="stat-label">ADB</div><div class="stat-value">${escapeHtml_(setup.connectedDevice ? setup.connectedDevice : 'Not connected')}</div></div>
+            <div class="stat-box"><div class="stat-label">Beat Saber</div><div class="stat-value">${escapeHtml_(beatSaber.installed ? (beatSaber.versionName || 'Installed') : 'Not installed')}</div></div>
+            <div class="stat-box"><div class="stat-label">Mods</div><div class="stat-value">${escapeHtml_(String(Number(mods.count || 0)))}</div></div>
+            <div class="stat-box"><div class="stat-label">Errors</div><div class="stat-value" style="color:${Number(logStats.errorCount||0)>0?'#ff7070':'#fff'}">${escapeHtml_(String(Number(logStats.errorCount || 0)))}</div></div>
+            <div class="stat-box"><div class="stat-label">Warnings</div><div class="stat-value" style="color:${Number(logStats.warnCount||0)>0?'#ffc43a':'#fff'}">${escapeHtml_(String(Number(logStats.warnCount || 0)))}</div></div>
+            <div class="stat-box"><div class="stat-label">BS log lines</div><div class="stat-value">${escapeHtml_(String(Number(beatSaberLogs.lineCount || 0)))}</div></div>
+          </div>
+          <!-- Tabs -->
+          <div class="tab-row" style="margin-top:14px;">
+            <button class="tab active" type="button" data-tab="tab-overview">Overview</button>
+            <button class="tab" type="button" data-tab="tab-setup">Setup</button>
+            <button class="tab" type="button" data-tab="tab-mods">Mods</button>
+            <button class="tab" type="button" data-tab="tab-bslogs">Beat Saber Logs</button>
+            <button class="tab" type="button" data-tab="tab-applogs">App Logs</button>
+            <button class="tab" type="button" data-tab="tab-aifix">AI Fix ✨</button>
+            <button class="tab" type="button" data-tab="tab-json">Raw JSON</button>
+          </div>
+        </div>
+
+        <!-- Tab panels -->
+        <div id="tab-overview" class="tab-panel active">
+          <div class="grid2">
+            <div class="container"><div class="section-title">Inferred issues</div>${issueList}</div>
+            <div class="container"><div class="section-title">Recent app problems</div>${problemList}</div>
+            <div class="container"><div class="section-title">Beat Saber log highlights</div>${beatSaberProblems}</div>
+            <div class="container"><div class="section-title">Quick facts</div>
+              <div class="fact-row"><span class="fact-key">Pairing port</span><span class="fact-val">${escapeHtml_(String(setup.pairingPort || 'Unknown'))}</span></div>
+              <div class="fact-row"><span class="fact-key">Debug port</span><span class="fact-val">${escapeHtml_(String(setup.debugPort || 'Unknown'))}</span></div>
+              <div class="fact-row"><span class="fact-key">Package</span><span class="fact-val">${escapeHtml_(beatSaber.packageName || 'Unknown')}</span></div>
+              <div class="fact-row"><span class="fact-key">Version</span><span class="fact-val">${escapeHtml_(beatSaber.versionName || 'Unknown')}</span></div>
             </div>
           </div>
-          <div class="hero-meta">
-            <div class="panel" style="padding:16px;">
-              <h3>At a glance</h3>
-              <div class="facts">
-                <div class="fact"><span class="fact-key">Guide step</span><span class="fact-value">${escapeHtml_(setup.currentGuideStep || 'Not in setup')}</span></div>
-                <div class="fact"><span class="fact-key">Device</span><span class="fact-value">${escapeHtml_(setup.connectedDevice || 'No device')}</span></div>
-                <div class="fact"><span class="fact-key">Beat Saber</span><span class="fact-value">${escapeHtml_(beatSaber.versionName || 'Unknown')}</span></div>
-              </div>
+        </div>
+
+        <div id="tab-setup" class="tab-panel">
+          <div class="grid2">
+            <div class="container"><div class="section-title">Setup status</div>
+              <div class="fact-row"><span class="fact-key">Developer mode</span><span class="fact-val">${escapeHtml_(setup.developerModeEnabled ? 'On' : 'Off')}</span></div>
+              <div class="fact-row"><span class="fact-key">Wireless Debugging</span><span class="fact-val">${escapeHtml_(setup.wirelessDebuggingEnabled ? 'On' : 'Off')}</span></div>
+              <div class="fact-row"><span class="fact-key">Connected device</span><span class="fact-val">${escapeHtml_(setup.connectedDevice || 'Not connected')}</span></div>
+              <div class="fact-row"><span class="fact-key">Current guide step</span><span class="fact-val">${escapeHtml_(setup.currentGuideStep || 'Not in setup')}</span></div>
+              <div class="fact-row"><span class="fact-key">Pairing port</span><span class="fact-val">${escapeHtml_(String(setup.pairingPort || 'Unknown'))}</span></div>
+              <div class="fact-row"><span class="fact-key">Debug port</span><span class="fact-val">${escapeHtml_(String(setup.debugPort || 'Unknown'))}</span></div>
+            </div>
+            <div class="container"><div class="section-title">Beat Saber status</div>
+              <div class="fact-row"><span class="fact-key">Installed</span><span class="fact-val">${escapeHtml_(beatSaber.installed ? 'Yes' : 'No')}</span></div>
+              <div class="fact-row"><span class="fact-key">Package</span><span class="fact-val">${escapeHtml_(beatSaber.packageName || 'Unknown')}</span></div>
+              <div class="fact-row"><span class="fact-key">Version</span><span class="fact-val">${escapeHtml_(beatSaber.versionName || 'Unknown')}</span></div>
+              <div class="fact-row"><span class="fact-key">Detected mods</span><span class="fact-val">${escapeHtml_(String(Number(mods.count || 0)))}</span></div>
+              <div class="fact-row"><span class="fact-key">Beat Saber log lines</span><span class="fact-val">${escapeHtml_(String(Number(beatSaberLogs.lineCount || 0)))}</span></div>
             </div>
           </div>
         </div>
-        <div class="stats">
-          <div class="stat"><div class="label">Current step</div><div class="value">${escapeHtml_(setup.currentGuideStep || 'Not in setup')}</div></div>
-          <div class="stat"><div class="label">ADB</div><div class="value">${escapeHtml_(setup.connectedDevice ? `Connected to ${setup.connectedDevice}` : 'Not connected')}</div></div>
-          <div class="stat"><div class="label">Beat Saber</div><div class="value">${escapeHtml_(beatSaber.installed ? (beatSaber.versionName || 'Installed') : 'Not installed')}</div></div>
-          <div class="stat"><div class="label">Mods</div><div class="value">${escapeHtml_(String(Number(mods.count || 0)))}</div></div>
-          <div class="stat"><div class="label">Errors</div><div class="value">${escapeHtml_(String(Number(logStats.errorCount || 0)))}</div></div>
-          <div class="stat"><div class="label">Warnings</div><div class="value">${escapeHtml_(String(Number(logStats.warnCount || 0)))}</div></div>
-          <div class="stat"><div class="label">Beat Saber logs</div><div class="value">${escapeHtml_(String(Number(beatSaberLogs.lineCount || 0)))}</div></div>
-        </div>
-        <div class="tabs" role="tablist">
-          <button class="tab-button active" type="button" data-tab-target="tab-overview">Overview</button>
-          <button class="tab-button" type="button" data-tab-target="tab-setup">Setup</button>
-          <button class="tab-button" type="button" data-tab-target="tab-mods">Mods</button>
-          <button class="tab-button" type="button" data-tab-target="tab-bslogs">Beat Saber Logs</button>
-          <button class="tab-button" type="button" data-tab-target="tab-applogs">App Logs</button>
-          <button class="tab-button" type="button" data-tab-target="tab-aifix">AI Fix ✨</button>
-          <button class="tab-button" type="button" data-tab-target="tab-json">Raw JSON</button>
-        </div>
-      </div>
 
-      <div id="tab-overview" class="tab-panel active">
-        <div class="grid">
-          <div class="panel"><h2>Inferred issues</h2>${issueList}</div>
-          <div class="panel"><h2>Recent problems</h2>${problemList}</div>
-          <div class="panel"><h2>Beat Saber log highlights</h2>${beatSaberProblems}</div>
-          <div class="panel"><h2>Quick facts</h2><ul>
-            <li>Pairing port: ${escapeHtml_(String(setup.pairingPort || 'Unknown'))}</li>
-            <li>Debug port: ${escapeHtml_(String(setup.debugPort || 'Unknown'))}</li>
-            <li>Package: ${escapeHtml_(beatSaber.packageName || 'Unknown')}</li>
-            <li>Version: ${escapeHtml_(beatSaber.versionName || 'Unknown')}</li>
-          </ul></div>
-        </div>
-      </div>
-
-      <div id="tab-setup" class="tab-panel">
-        <div class="split">
-          <div class="panel"><h2>Setup status</h2><div class="facts">
-            <div class="fact"><span class="fact-key">Developer mode</span><span class="fact-value">${escapeHtml_(setup.developerModeEnabled ? 'On' : 'Off')}</span></div>
-            <div class="fact"><span class="fact-key">Wireless Debugging</span><span class="fact-value">${escapeHtml_(setup.wirelessDebuggingEnabled ? 'On' : 'Off')}</span></div>
-            <div class="fact"><span class="fact-key">Connected device</span><span class="fact-value">${escapeHtml_(setup.connectedDevice || 'Not connected')}</span></div>
-            <div class="fact"><span class="fact-key">Current guide step</span><span class="fact-value">${escapeHtml_(setup.currentGuideStep || 'Not in setup')}</span></div>
-            <div class="fact"><span class="fact-key">Pairing port</span><span class="fact-value">${escapeHtml_(String(setup.pairingPort || 'Unknown'))}</span></div>
-            <div class="fact"><span class="fact-key">Debug port</span><span class="fact-value">${escapeHtml_(String(setup.debugPort || 'Unknown'))}</span></div>
-          </div></div>
-          <div class="panel"><h2>Beat Saber status</h2><div class="facts">
-            <div class="fact"><span class="fact-key">Installed</span><span class="fact-value">${escapeHtml_(beatSaber.installed ? 'Yes' : 'No')}</span></div>
-            <div class="fact"><span class="fact-key">Package</span><span class="fact-value">${escapeHtml_(beatSaber.packageName || 'Unknown')}</span></div>
-            <div class="fact"><span class="fact-key">Version</span><span class="fact-value">${escapeHtml_(beatSaber.versionName || 'Unknown')}</span></div>
-            <div class="fact"><span class="fact-key">Detected mods</span><span class="fact-value">${escapeHtml_(String(Number(mods.count || 0)))}</span></div>
-            <div class="fact"><span class="fact-key">Beat Saber log lines</span><span class="fact-value">${escapeHtml_(String(Number(beatSaberLogs.lineCount || 0)))}</span></div>
-          </div></div>
-        </div>
-      </div>
-
-      <div id="tab-mods" class="tab-panel">
-        <div class="section-stack">
-          <div class="panel">
-            <h2>Detected mods</h2>
-            <p class="muted">${escapeHtml_(String(Number(mods.count || 0)))} mod folder(s) detected.</p>
+        <div id="tab-mods" class="tab-panel">
+          <div class="container">
+            <div class="section-title">Detected mods &nbsp;<span class="muted">${escapeHtml_(String(Number(mods.count || 0)))} detected</span></div>
             ${modList}
           </div>
         </div>
-      </div>
 
-      <div id="tab-bslogs" class="tab-panel">
-        <div class="section-stack">
-          <div class="panel"><h2>Beat Saber log highlights</h2>${beatSaberProblems}</div>
-          <div class="panel"><h2>Beat Saber logs</h2>
-            ${beatSaberLogLines.length > 0 ? `<pre><code>${escapeHtml_(beatSaberLogLines.join('\n'))}</code></pre>` : '<p class="empty-state muted">No Beat Saber log lines were included in this upload.</p>'}
+        <div id="tab-bslogs" class="tab-panel">
+          <div class="grid2">
+            <div class="container"><div class="section-title">Beat Saber log highlights</div>${beatSaberProblems}</div>
+            <div class="container"><div class="section-title">Beat Saber logs</div>
+              ${beatSaberLogLines.length > 0 ? `<pre>${escapeHtml_(beatSaberLogLines.join('\n'))}</pre>` : '<p class="muted">No Beat Saber log lines were included in this upload.</p>'}
+            </div>
           </div>
         </div>
-      </div>
 
-      <div id="tab-applogs" class="tab-panel">
-        <div class="section-stack">
-          <div class="panel"><h2>Recent app problems</h2>${problemList}</div>
-          <div class="panel"><h2>App log output</h2>
-            ${logsText.trim() ? `<pre><code>${escapeHtml_(logsText)}</code></pre>` : '<p class="empty-state muted">No app log output was included in this upload.</p>'}
+        <div id="tab-applogs" class="tab-panel">
+          <div class="grid2">
+            <div class="container"><div class="section-title">Recent app problems</div>${problemList}</div>
+            <div class="container"><div class="section-title">App log output</div>
+              ${logsText.trim() ? `<pre>${escapeHtml_(logsText)}</pre>` : '<p class="muted">No app log output was included in this upload.</p>'}
+            </div>
           </div>
         </div>
-      </div>
 
-      <div id="tab-aifix" class="tab-panel">
-        <div class="panel">
-          <h2>AI Fix Suggestions ✨</h2>
-          <p class="muted">Click below to get AI-powered step-by-step fix instructions based on the detected issues.</p>
-          <button class="ai-btn" id="ai-fix-btn" type="button">Generate AI Fix</button>
-          <div id="ai-fix-output" style="display:none;"><div class="ai-result" id="ai-fix-text"></div></div>
+        <div id="tab-aifix" class="tab-panel">
+          <div class="container">
+            <div class="section-title">AI Fix Suggestions ✨</div>
+            <p class="muted" style="margin:0 0 12px;">AI-powered step-by-step fix instructions based on the detected issues.</p>
+            <button class="btn" id="ai-fix-btn" type="button" style="margin-bottom:14px;">Generate AI Fix</button>
+            <div id="ai-fix-output" style="display:none;"><div class="ai-result" id="ai-fix-text"></div></div>
+          </div>
         </div>
-      </div>
 
-      <div id="tab-json" class="tab-panel">
-        <div class="panel"><h2>Raw JSON</h2><pre><code>${escapeHtml_(rawJson)}</code></pre></div>
+        <div id="tab-json" class="tab-panel">
+          <div class="container"><div class="section-title">Raw JSON</div><pre>${escapeHtml_(rawJson)}</pre></div>
+        </div>
+
       </div>
     </div>
     <script>
       (function(){
-        const buttons=Array.from(document.querySelectorAll('.tab-button'));
+        const tabs=Array.from(document.querySelectorAll('.tab'));
         const panels=Array.from(document.querySelectorAll('.tab-panel'));
         function setTab(t){
-          buttons.forEach(b=>{const a=b.getAttribute('data-tab-target')===t;b.classList.toggle('active',a);b.setAttribute('aria-selected',a?'true':'false');});
+          tabs.forEach(b=>{const a=b.getAttribute('data-tab')===t;b.classList.toggle('active',a);});
           panels.forEach(p=>p.classList.toggle('active',p.id===t));
         }
-        buttons.forEach(b=>b.addEventListener('click',()=>setTab(b.getAttribute('data-tab-target'))));
-        const aiBtn=document.getElementById('ai-fix-btn');
-        const aiOut=document.getElementById('ai-fix-output');
-        const aiTxt=document.getElementById('ai-fix-text');
-        aiBtn.addEventListener('click',async function(){
-          aiBtn.disabled=true;aiBtn.textContent='Generating...';
+        tabs.forEach(b=>b.addEventListener('click',()=>setTab(b.getAttribute('data-tab'))));
+        const btn=document.getElementById('ai-fix-btn');
+        const out=document.getElementById('ai-fix-output');
+        const txt=document.getElementById('ai-fix-text');
+        btn.addEventListener('click',async function(){
+          btn.disabled=true;btn.textContent='Generating...';
           try{
             const r=await fetch(${JSON.stringify(aifixUrl)});
             const d=await r.json();
-            aiTxt.textContent=d.ok?d.fix:('Error: '+(d.error||'Unknown'));
-            aiOut.style.display='block';
-            aiBtn.textContent=d.ok?'Regenerate AI Fix':'Retry';
-          }catch(e){aiTxt.textContent='Failed: '+e.message;aiOut.style.display='block';aiBtn.textContent='Retry';}
-          aiBtn.disabled=false;
+            txt.textContent=d.ok?d.fix:('Error: '+(d.error||'Unknown'));
+            out.style.display='block';
+            btn.textContent=d.ok?'Regenerate AI Fix':'Retry';
+          }catch(e){txt.textContent='Failed: '+e.message;out.style.display='block';btn.textContent='Retry';}
+          btn.disabled=false;
         });
       })();
     </script>
@@ -591,7 +573,10 @@ function renderViewerPage_(record, baseUrl) {
 
 function renderMissingCodePage_() { return renderErrorPage_('Open this viewer with a shared debug code.'); }
 function renderErrorPage_(message) {
-  return `<!doctype html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>MBF Tools Debug Viewer</title>
-  <style>body{margin:0;font-family:"Segoe UI",sans-serif;background:#0f1722;color:#f4f8fc;display:flex;align-items:center;justify-content:center;min-height:100vh;}.card{max-width:560px;background:#162232;border:1px solid rgba(181,216,255,0.18);border-radius:18px;padding:24px;}</style>
-  </head><body><div class="card"><h1>MBF Tools Debug Viewer</h1><p>${message}</p></div></body></html>`;
+  return `<!doctype html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="theme-color" content="#99d9ea"/><title>MBF Tools Debug Viewer</title>
+  <style>${BASE_STYLE}.center{display:flex;align-items:center;justify-content:center;min-height:100vh;}</style>
+  </head><body><div class="center"><div class="container" style="max-width:520px;width:100%;">
+    <h1 style="margin-bottom:10px;">MBF Tools Debug Viewer</h1><p style="margin:0;color:#cde;">${message}</p>
+  </div></div></body></html>`;
 }
