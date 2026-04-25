@@ -15,8 +15,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 object DebugShareHelper {
-    private const val DEFAULT_BACKEND_URL =
-            "https://script.google.com/macros/s/AKfycbyS2gK65EMJxFi5_yzOZtBNpXRF-AOqfVIeo-aoMRNseZ62oSDuJkyBfWulY_dDoAs60Q/exec"
+    private const val DEFAULT_BACKEND_URL = "https://mbf-tools-logs-api.netherslayer87.workers.dev"
 
     fun currentBackendUrl(): String {
         return DEFAULT_BACKEND_URL

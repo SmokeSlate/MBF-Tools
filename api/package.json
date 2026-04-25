@@ -1,18 +1,14 @@
 {
   "name": "mbf-tools-logs-api",
   "private": true,
-  "version": "1.0.0",
-  "description": "Google Apps Script backend for MBF Tools and Setup debug log sharing.",
+  "version": "2.0.0",
+  "description": "Cloudflare Worker backend for MBF Tools debug log sharing.",
+  "type": "module",
   "scripts": {
-    "login": "clasp login",
-    "push": "clasp push",
-    "pull": "clasp pull",
-    "open": "clasp open",
-    "deploy": "clasp deploy",
-    "versions": "clasp versions",
-    "logs": "clasp logs --watch"
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
   },
   "devDependencies": {
-    "@google/clasp": "^2.5.0"
+    "wrangler": "^3.0.0"
   }
 }
