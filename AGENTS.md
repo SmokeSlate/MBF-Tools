@@ -95,9 +95,9 @@ Cloudflare KV namespace `LOGS` (binding name in `wrangler.toml`):
 ```json
 {
   "app":          { "versionName", "versionCode", "setupComplete" },
-  "device":       { "manufacturer", "model", "build", "sdk" },
+  "device":       { "manufacturer", "brand", "model", "device", "product", "sdkInt", "release", "fingerprint" },
   "runtime":      { "maxMemory", "totalMemory", "freeMemory", "processors" },
-  "network":      { "wifiConnected", "hasInternet" },
+  "network":      { "hasActiveNetwork", "hasWifiTransport", "hasInternetCapability" },
   "setup":        { "developerModeEnabled", "wirelessDebuggingEnabled", "connectedDevice",
                     "currentGuideStep", "pairingPort", "debugPort" },
   "beatSaber":    { "packageName", "installed", "versionName" },
