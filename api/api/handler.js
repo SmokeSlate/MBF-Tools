@@ -291,6 +291,13 @@ const BASE_STYLE = `
   *{box-sizing:border-box;}
   :root{color-scheme:dark;}
   body{margin:0;font-family:'Roboto',sans-serif;background:#002040;color:#fff;min-height:100vh;overflow-y:scroll;}
+  @media(prefers-reduced-motion){#anim-bg{display:none;}}
+  #anim-bg{display:block;position:fixed;z-index:-100;top:0;left:0;width:100%;height:100%;filter:blur(0.5em);}
+  .block rect{fill:#000078;stroke-width:4px;stroke:#000050;}
+  .block path{stroke-width:4px;stroke:#0061ff;fill:#b9baff;}
+  .bomb path{fill:url(#bomb-gradient);stroke:#000;transform-box:fill-box;transform-origin:50% 50%;}
+  .red-block rect{stroke:#500000;fill:#780000;}
+  .red-block path,ellipse{stroke:red;fill:#ffe8e8;}
   h1,h2,h3{margin-top:0;margin-bottom:0;}
   a{color:#0066ff;font-weight:700;text-decoration:none;} a:hover{text-decoration:underline;}
   .page{display:flex;flex-direction:column;align-items:center;padding:16px 8px 40px;}
@@ -333,6 +340,67 @@ const BASE_STYLE = `
   @media(max-width:600px){.page{padding:8px 4px 32px;}.tab{font-size:13px;padding:8px 12px;}}
 `;
 
+const ANIM_BG_SCRIPT = `
+(function(){
+  const V=10/1e3,AV=.2/1e3,SV=.4,BV=.4,SJ=.1,DUR=5e3,JIT=1e3,DENS=2e-5;
+  function el(tag,attrs){const e=document.createElementNS("http://www.w3.org/2000/svg",tag);for(const k in attrs)e.setAttribute(k==="className"?"class":k,attrs[k]);return e;}
+  function count(){return Math.ceil(Math.max(innerWidth*innerHeight*DENS/devicePixelRatio,20));}
+  class Note{
+    constructor(root,top=false){this.node=el("g");root.appendChild(this.node);this.init(top);}
+    init(top=true){
+      let t=Math.floor(7*Math.random())-2;if(t<0)t+=2;this.type=t;
+      this.av=(2*Math.random()-1)*AV;this.rot=1-(2*Math.random()-1)*Math.PI;
+      const n=2*Math.random()-1,r=2*Math.random()-1;
+      this.sc=1-n*SV;const se=1-r*SV;this.br=1-n*BV;const be=1-r*BV;
+      this.pos=[Math.random()*(innerWidth+200*this.sc)-this.sc*100,
+        top?-100*this.sc:Math.random()*(innerHeight+150*this.sc)-this.sc*100];
+      const ang=Math.random()*Math.PI/2+Math.PI/4;
+      this.vel=[V*Math.cos(ang),V*Math.sin(ang)];
+      const tte=(innerHeight-this.pos[1]+se)/this.vel[1];
+      this.scs=(se-this.sc)/tte;this.bcs=t!==4?(be-this.br)/tte:0;
+      this.anim=null;this.build();this.tick(0);
+    }
+    build(){
+      while(this.node.lastChild)this.node.removeChild(this.node.lastChild);
+      this.node.className.baseVal="";
+      const t=this.type;
+      if(t===4){this.node.classList.add("bomb");this.node.appendChild(el("path",{d:"M 16.588 25.261 L 0.271 25.261 L -9.292 58.594 L -8.873 25.26 L -19.645 25.26 L -24.671 29.566 L -21.536 21.708 L -25.928 6.658 L -66.658 9.545 L -28.483 -2.096 L -31.32 -11.818 L -30.336 -12.56 L -41.991 -20.297 L -24.148 -17.223 L -17.527 -22.213 L -32.214 -56.515 L -9.796 -28.04 L -5.567 -31.228 L -2.62 -47.336 L 0.907 -33.318 L 13.827 -23.318 L 46.439 -48.293 L 21.605 -17.299 L 26.002 -13.896 L 39.033 -14.184 L 27.412 -7.903 L 24.15 2.09 L 60.606 22.849 L 21.106 11.417 L 18.779 18.547 L 25.405 33.345 L 16.652 25.066 L 16.588 25.261 Z"}));return;}
+      const red=t===1||t===3;
+      this.node.classList.add("block");if(red)this.node.classList.add("red-block");
+      this.node.appendChild(el("rect",{x:-50,y:-50,width:100,height:100,rx:20,ry:20}));
+      if(t===0||t===1)this.node.appendChild(el("path",{d:"M -40 -40 L 40 -40 L 40 -30 L 0 -10 L -40 -30 Z"}));
+      else this.node.appendChild(el("ellipse",{cx:0,cy:0,rx:20,ry:20}));
+    }
+    next(dt){
+      return{pos:[this.pos[0]+this.vel[0]*dt,this.pos[1]+this.vel[1]*dt],
+        rot:this.rot+this.av*dt,
+        sc:Math.min(Math.max(this.sc+this.scs*dt,1-SJ-SV),1+SJ+SV),
+        br:Math.min(Math.max(this.br+this.bcs*dt,1-SJ-BV),1+SJ+BV)};
+    }
+    tick(dt){
+      if(dt>0){const s=this.next(dt);this.pos=s.pos;this.rot=s.rot;this.sc=s.sc;this.br=s.br;}
+      if(this.pos[1]>100*this.sc+innerHeight||this.pos[0]<-100*this.sc||this.pos[0]>100*this.sc+innerWidth)
+        {this.init();return;}
+      const dur=DUR+(2*Math.random()-1)*JIT,nx=this.next(dur);
+      const kf=[
+        {transform:\`translate(\${this.pos[0]}px,\${this.pos[1]}px) rotate(\${this.rot}rad) scale(\${this.sc})\`,filter:\`brightness(\${this.br})\`},
+        {transform:\`translate(\${nx.pos[0]}px,\${nx.pos[1]}px) rotate(\${nx.rot}rad) scale(\${nx.sc})\`,filter:\`brightness(\${nx.br})\`}
+      ];
+      this.anim=this.node.animate(kf,dur);
+      this.anim.onfinish=()=>this.tick(this.anim?.currentTime??dur);
+    }
+  }
+  const svg=el("svg",{id:"anim-bg",viewBox:\`0 0 \${innerWidth} \${innerHeight}\`});
+  const defs=el("defs",{});const grad=el("radialGradient",{id:"bomb-gradient"});
+  grad.appendChild(el("stop",{offset:0,style:"stop-color:rgb(20,20,20)"}));
+  grad.appendChild(el("stop",{offset:.75,style:"stop-color:rgb(3,3,3)"}));
+  defs.appendChild(grad);svg.appendChild(defs);document.body.appendChild(svg);
+  window.addEventListener("resize",()=>svg.setAttribute("viewBox",\`0 0 \${innerWidth} \${innerHeight}\`));
+  const notes=[];for(let i=0;i<count();i++)notes.push(new Note(svg));
+  setInterval(()=>{const t=count();if(notes.length<t)notes.push(new Note(svg,true));},500);
+})();
+`;
+
 // ─── Admin HTML ───────────────────────────────────────────────────────────────
 
 function renderAdminLogin_(error = '') {
@@ -342,7 +410,7 @@ function renderAdminLogin_(error = '') {
     .login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;}
     .login-card{background:#000000e6;border-radius:10px;padding:28px;width:100%;max-width:380px;}
   </style></head>
-  <body><div class="login-wrap"><div class="login-card">
+  <body><script>${ANIM_BG_SCRIPT}</script><div class="login-wrap"><div class="login-card">
     <h1 style="margin-bottom:6px;">MBF Tools</h1>
     <p class="muted" style="margin:0 0 4px;">Admin panel — enter your password to continue.</p>
     ${error ? `<p class="error-msg">${escapeHtml_(error)}</p>` : ''}
@@ -372,7 +440,7 @@ function renderAdminPage_(rows, nextCursor) {
   return `<!doctype html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
   <meta name="theme-color" content="#99d9ea"/><title>Admin — MBF Tools</title>
   <style>${BASE_STYLE}</style></head>
-  <body><div class="page"><div class="main">
+  <body><script>${ANIM_BG_SCRIPT}</script><div class="page"><div class="main">
     <div style="display:flex;align-items:baseline;justify-content:space-between;margin:8px 0 14px;flex-wrap:wrap;gap:8px;">
       <div><h1 style="font-size:22px;margin-bottom:4px;">MBF Tools Admin</h1><p class="muted" style="margin:0;">Shared debug logs</p></div>
     </div>
@@ -431,6 +499,7 @@ function renderViewerPage_(record, baseUrl) {
     </style>
   </head>
   <body>
+    <script>${ANIM_BG_SCRIPT}</script>
     <div class="page">
       <div class="main">
 
@@ -576,7 +645,7 @@ function renderErrorPage_(message) {
   return `<!doctype html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
   <meta name="theme-color" content="#99d9ea"/><title>MBF Tools Debug Viewer</title>
   <style>${BASE_STYLE}.center{display:flex;align-items:center;justify-content:center;min-height:100vh;}</style>
-  </head><body><div class="center"><div class="container" style="max-width:520px;width:100%;">
+  </head><body><script>${ANIM_BG_SCRIPT}</script><div class="center"><div class="container" style="max-width:520px;width:100%;">
     <h1 style="margin-bottom:10px;">MBF Tools Debug Viewer</h1><p style="margin:0;color:#cde;">${message}</p>
   </div></div></body></html>`;
 }
