@@ -12,6 +12,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.core.content.ContextCompat
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -285,7 +286,7 @@ class HomeActivity : ComponentActivity() {
         val question =
                 TextView(this).apply {
                     text = item.question
-                    setTextColor(resources.getColor(R.color.text_primary, theme))
+                    setTextColor(ContextCompat.getColor(this@HomeActivity, R.color.text_primary))
                     setTypeface(typeface, Typeface.BOLD)
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
                 }
@@ -293,7 +294,7 @@ class HomeActivity : ComponentActivity() {
         val answer =
                 TextView(this).apply {
                     text = item.answer
-                    setTextColor(resources.getColor(R.color.text_secondary, theme))
+                    setTextColor(ContextCompat.getColor(this@HomeActivity, R.color.text_secondary))
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
                     setLineSpacing(0f, 1.15f)
                     layoutParams =

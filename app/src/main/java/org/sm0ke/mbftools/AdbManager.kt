@@ -6,6 +6,7 @@ import android.content.Context.NSD_SERVICE
 import android.net.ConnectivityManager
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
+import android.os.Build
 import android.provider.Settings
 import java.io.File
 import java.util.concurrent.CountDownLatch
@@ -40,7 +41,7 @@ object AdbManager {
 
     @Synchronized
     private fun ensureServer(context: Context) {
-        if (serverProcess?.isAlive == true) {
+        if (isProcessAlive(serverProcess)) {
             return
         }
 
@@ -295,13 +296,10 @@ object AdbManager {
         val stderrFuture = streamReaderPool.submit<String> {
             process.errorStream.bufferedReader().use { it.readText() }
         }
-        val finished = process.waitFor(timeoutMs, TimeUnit.MILLISECONDS)
+        val finished = waitForProcess(process, timeoutMs)
         if (!finished) {
             process.destroy()
-            if (!process.waitFor(500, TimeUnit.MILLISECONDS)) {
-                process.destroyForcibly()
-                process.waitFor(500, TimeUnit.MILLISECONDS)
-            }
+            waitForProcess(process, 500)
             val stdout = runCatching { stdoutFuture.get(1, TimeUnit.SECONDS) }.getOrDefault("")
             val stderr =
                     runCatching { stderrFuture.get(1, TimeUnit.SECONDS) }
@@ -324,6 +322,9 @@ object AdbManager {
     }
 
     private fun getLocalIpAddresses(context: Context): Set<String> {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            return emptySet()
+        }
         val connectivityManager =
                 context.getSystemService(CONNECTIVITY_SERVICE) as? ConnectivityManager
                         ?: return emptySet()
@@ -336,5 +337,33 @@ object AdbManager {
                 .mapNotNull { it.address?.hostAddress?.substringBefore('%')?.trim() }
                 .filter { it.isNotEmpty() }
                 .toSet()
+    }
+
+    private fun isProcessAlive(process: Process?): Boolean {
+        if (process == null) {
+            return false
+        }
+        return try {
+            process.exitValue()
+            false
+        } catch (_: IllegalThreadStateException) {
+            true
+        }
+    }
+
+    private fun waitForProcess(process: Process, timeoutMs: Long): Boolean {
+        val timeoutNanos = TimeUnit.MILLISECONDS.toNanos(timeoutMs)
+        val deadline = System.nanoTime() + timeoutNanos
+        while (isProcessAlive(process)) {
+            val remainingNanos = deadline - System.nanoTime()
+            if (remainingNanos <= 0L) {
+                return false
+            }
+            val sleepMs =
+                    TimeUnit.NANOSECONDS.toMillis(remainingNanos)
+                            .coerceIn(1L, 50L)
+            Thread.sleep(sleepMs)
+        }
+        return true
     }
 }

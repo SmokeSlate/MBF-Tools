@@ -15,7 +15,7 @@ object BridgeManager {
 
     @Synchronized
     fun startOrGetBrowserUrl(context: Context, appUrl: String): String {
-        if (bridgeProcess?.isAlive == true && !browserUrl.isNullOrBlank()) {
+        if (isProcessAlive(bridgeProcess) && !browserUrl.isNullOrBlank()) {
             return browserUrl!!
         }
 
@@ -71,5 +71,17 @@ object BridgeManager {
 
         return startupUrl.get()
                 ?: throw IllegalStateException("MBF bridge did not return a browser URL.")
+    }
+
+    private fun isProcessAlive(process: Process?): Boolean {
+        if (process == null) {
+            return false
+        }
+        return try {
+            process.exitValue()
+            false
+        } catch (_: IllegalThreadStateException) {
+            true
+        }
     }
 }
