@@ -1,8 +1,8 @@
 # MBF Tools Logs API
 
-This folder contains the Google Apps Script backend for the `Share Debug Logs` button in `/app`.
+This folder contains the Cloudflare Worker backend for the `Share Debug Logs` button in `/app`.
 
-The Android app uploads one JSON payload to the base Apps Script web-app URL. The backend stores that payload, generates a short share code like `2a3rf`, and returns:
+The Android app uploads one JSON payload to the base Worker URL. The backend stores that payload, generates a short share code like `2a3rf`, and returns:
 
 - a code
 - a bot-friendly command like `!s 2a3rf`
@@ -26,22 +26,22 @@ The payload includes:
 
 ## Backend shape
 
-`src/Code.js` exposes four actions off the same deployed web-app URL.
+`api/handler.js` exposes four actions off the same deployed Worker URL.
 
 Base upload URL:
 
 ```text
-POST https://script.google.com/macros/s/DEPLOYMENT_ID/exec
+POST https://mbf-tools-logs-api.netherslayer87.workers.dev
 ```
 
-Returned raw GAS URLs:
+Returned Worker URLs:
 
 - viewer: `?action=view&code=abc12`
 - summary: `?action=summary&code=abc12`
 - message: `?action=message&code=abc12`
 - data: `?action=data&code=abc12`
 
-Recommended public routes in front of GAS:
+Optional public routes in front of the Worker:
 
 - viewer: `https://logs.sm0ke.org/abc12`
 - summary: `https://logs.sm0ke.org/summary/abc12`
@@ -67,10 +67,10 @@ Response:
   "code": "abc12",
   "command": "!s abc12",
   "summary": "Wireless Debugging is turned off. No authorized ADB headset connection is active.",
-  "viewerUrl": "https://.../exec?action=view&code=abc12",
-  "summaryUrl": "https://.../exec?action=summary&code=abc12",
-  "messageUrl": "https://.../exec?action=message&code=abc12",
-  "dataUrl": "https://.../exec?action=data&code=abc12"
+  "viewerUrl": "https://.../?action=view&code=abc12",
+  "summaryUrl": "https://.../?action=summary&code=abc12",
+  "messageUrl": "https://.../?action=message&code=abc12",
+  "dataUrl": "https://.../?action=data&code=abc12"
 }
 ```
 
@@ -130,8 +130,8 @@ Wireless Debugging: Off
 Beat Saber: com.beatgames.beatsaber 1.40.0
 Mods (3): SongCore, BS Utils, Qosmetics
 Logs: 1 error(s), 4 warning(s), 137 line(s)
-Viewer: https://.../exec?action=view&code=abc12
-Summary API: https://.../exec?action=summary&code=abc12
+Viewer: https://.../?action=view&code=abc12
+Summary API: https://.../?action=summary&code=abc12
 ```
 
 This is the endpoint your bot bridge should fetch and relay into chat.
@@ -142,10 +142,10 @@ Public route form:
 GET https://logs.sm0ke.org/message/abc12
 ```
 
-Direct GAS form:
+Direct Worker form:
 
 ```text
-GET https://script.google.com/macros/s/AKfycbyS2gK65EMJxFi5_yzOZtBNpXRF-AOqfVIeo-aoMRNseZ62oSDuJkyBfWulY_dDoAs60Q/exec?action=message&code=abc12
+GET https://mbf-tools-logs-api.netherslayer87.workers.dev?action=message&code=abc12
 ```
 
 ### 4. Viewer
@@ -201,29 +201,29 @@ Public route form:
 GET https://logs.sm0ke.org/data/abc12
 ```
 
-Direct GAS form:
+Direct Worker form:
 
 ```text
-GET https://script.google.com/macros/s/AKfycbyS2gK65EMJxFi5_yzOZtBNpXRF-AOqfVIeo-aoMRNseZ62oSDuJkyBfWulY_dDoAs60Q/exec?action=data&code=abc12
+GET https://mbf-tools-logs-api.netherslayer87.workers.dev?action=data&code=abc12
 ```
 
 ## Storage model
 
-The script stores uploads in a Google Drive folder named:
+The Worker stores uploads in the Cloudflare KV namespace bound as:
 
 ```text
-MBF Tools Shared Logs
+LOGS
 ```
 
-Each upload is written as one JSON file named:
+Each upload is written as one KV entry:
 
 ```text
-<code>.json
+log:<code>
 ```
 
-The script also stores a code-to-file-ID index in Apps Script `ScriptProperties` for faster lookup.
+Entries currently expire after 30 days.
 
-## Setup with clasp
+## Setup with Wrangler
 
 ### 1. Install dependencies
 
@@ -233,65 +233,47 @@ From `/api`:
 npm install
 ```
 
-### 2. Log in
+### 2. Log in to Cloudflare
 
 ```powershell
-npm run login
+npx wrangler login
 ```
 
-### 3. Create the Apps Script project
+### 3. Configure KV
 
-If you do not already have a standalone script:
+Create a KV namespace if one does not already exist:
 
 ```powershell
-npx clasp create --type standalone --title "MBF Tools Logs API" --rootDir src
+npx wrangler kv namespace create LOGS
 ```
 
-That command will create or replace `.clasp.json`.
-
-If you already have a script, keep this repo’s structure and edit `/api/.clasp.json` manually:
-
-```json
-{
-  "scriptId": "YOUR_REAL_SCRIPT_ID",
-  "rootDir": "src"
-}
-```
+Put the returned namespace id in `wrangler.toml`.
 
 ### 4. Push the code
-
-```powershell
-npm run push
-```
-
-### 5. Deploy as a web app
-
-In Apps Script or with clasp:
 
 ```powershell
 npm run deploy
 ```
 
-Recommended web-app settings:
+### 5. Run locally
 
-- Execute as: `Me`
-- Who has access: `Anyone`
-
-The Quest app is posting directly to the web app, so the deployment must be reachable without the user signing into your Google account.
+```powershell
+npm run dev
+```
 
 ### 6. Android app
 
-The current Android app build is hardcoded to the deployed web-app `/exec` URL. You do not need to paste the URL into the app anymore.
+The current Android app build is hardcoded to the deployed Worker URL. You do not need to paste the URL into the app anymore.
 
 ## How the Android app uses it
 
-The Android app posts to the base web-app URL only. It does not append `action=` on upload.
+The Android app posts to the base Worker URL only. It does not append `action=` on upload.
 
 Expected flow:
 
 1. User opens setup, home, or advanced.
 2. User presses `Share Debug Logs`.
-3. App uploads diagnostics JSON to the hardcoded `/exec` URL.
+3. App uploads diagnostics JSON to the hardcoded Worker URL.
 4. Backend returns `code`, `command`, `viewerUrl`, `summaryUrl`, and `messageUrl`.
 5. App shows the short support message, for example `!s abc12`.
 
@@ -303,7 +285,7 @@ If you are writing a bot that takes `!s abc12` and posts details:
 2. Fetch:
 
 ```text
-GET https://script.google.com/macros/s/AKfycbyS2gK65EMJxFi5_yzOZtBNpXRF-AOqfVIeo-aoMRNseZ62oSDuJkyBfWulY_dDoAs60Q/exec?action=message&code=abc12
+GET https://mbf-tools-logs-api.netherslayer87.workers.dev?action=message&code=abc12
 ```
 
 3. Relay that body directly into chat.
@@ -311,13 +293,13 @@ GET https://script.google.com/macros/s/AKfycbyS2gK65EMJxFi5_yzOZtBNpXRF-AOqfVIeo
 If you only need a short answer:
 
 ```text
-GET https://script.google.com/macros/s/AKfycbyS2gK65EMJxFi5_yzOZtBNpXRF-AOqfVIeo-aoMRNseZ62oSDuJkyBfWulY_dDoAs60Q/exec?action=summary&code=abc12
+GET https://mbf-tools-logs-api.netherslayer87.workers.dev?action=summary&code=abc12&format=text
 ```
 
 If you need the full payload:
 
 ```text
-GET https://script.google.com/macros/s/AKfycbyS2gK65EMJxFi5_yzOZtBNpXRF-AOqfVIeo-aoMRNseZ62oSDuJkyBfWulY_dDoAs60Q/exec?action=data&code=abc12
+GET https://mbf-tools-logs-api.netherslayer87.workers.dev?action=data&code=abc12
 ```
 
 ## Bot script example
@@ -335,7 +317,7 @@ Recommended trigger config:
 What the script does:
 
 - reacts with a lookup emoji
-- fetches the GAS `?action=message&code=<code>` endpoint
+- fetches the Worker `?action=message&code=<code>` endpoint
 - replies with the formatted support message
 - falls back to the summary endpoint if the message endpoint fails
 - links the viewer route if the code is missing or broken
@@ -347,7 +329,14 @@ LOOKUP_EMOJI = "🔎"
 SUCCESS_EMOJI = "✅"
 FAILURE_EMOJI = "❌"
 MESSAGE_LIMIT = 1800
-GAS_BASE_URL = "https://script.google.com/macros/s/AKfycbyS2gK65EMJxFi5_yzOZtBNpXRF-AOqfVIeo-aoMRNseZ62oSDuJkyBfWulY_dDoAs60Q/exec"
+WORKER_BASE_URL = "https://mbf-tools-logs-api.netherslayer87.workers.dev"
+
+def _action_url(action, code, extra_query=""):
+    suffix = f"&{extra_query}" if extra_query else ""
+    return f"{WORKER_BASE_URL}?action={action}&code={code}{suffix}"
+
+def _viewer_url(code):
+    return _action_url("view", code)
 
 def _status(response):
     if isinstance(response, dict):
@@ -413,7 +402,7 @@ async def _main():
     try:
         message_response = await _maybe_await(
             http_request(
-                f"{GAS_BASE_URL}?action=message&code={code}",
+                _action_url("message", code),
                 timeout=15,
             )
         )
@@ -427,7 +416,7 @@ async def _main():
 
         summary_response = await _maybe_await(
             http_request(
-                f"{GAS_BASE_URL}?action=summary&code={code}&format=text",
+                _action_url("summary", code, "format=text"),
                 timeout=15,
             )
         )
@@ -438,10 +427,10 @@ async def _main():
             reply(
                 f"Could not fetch the full message view for `{code}`.\\n\\n"
                 f"{summary_body}\\n\\n"
-                f"Viewer: https://logs.sm0ke.org/{code}"
+                f"Viewer: {_viewer_url(code)}"
             )
         else:
-            reply(f"Could not find shared logs for `{code}`.\\n\\nViewer: https://logs.sm0ke.org/{code}")
+            reply(f"Could not find shared logs for `{code}`.\\n\\nViewer: {_viewer_url(code)}")
         react(FAILURE_EMOJI)
     finally:
         remove_reaction(LOOKUP_EMOJI)
@@ -457,7 +446,7 @@ except RuntimeError:
 After deploying, test with PowerShell:
 
 ```powershell
-$url = "https://script.google.com/macros/s/DEPLOYMENT_ID/exec"
+$url = "https://mbf-tools-logs-api.netherslayer87.workers.dev"
 $payload = @{
   app = @{
     packageName = "org.sm0ke.mbftools"
@@ -498,7 +487,7 @@ Then open the returned viewer URL.
 
 ## Operational notes
 
-- Apps Script does not give you normal HTTP status control for `doGet` and `doPost`, so this backend always returns JSON with `ok: true/false`.
-- The current summary is heuristic. If you want different failure wording, edit `analyzePayload_()` in `src/Code.js`.
-- All storage is in your Google Drive account. If you want retention controls, add a cleanup function that deletes older files from the `MBF Tools Shared Logs` folder.
+- Worker errors use normal HTTP status codes and include JSON with `ok: false` when possible.
+- The current summary is heuristic. If you want different failure wording, edit `analyzePayload_()` in `api/handler.js`.
+- Shared logs are stored in Cloudflare KV with the retention configured by `CODE_TTL`.
 - The best extension points are `analyzePayload_()` for diagnosis and `buildMessageText_()` for the bot output format.

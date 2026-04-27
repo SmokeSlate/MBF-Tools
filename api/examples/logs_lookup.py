@@ -18,7 +18,16 @@ LOOKUP_EMOJI = "🔎"
 SUCCESS_EMOJI = "✅"
 FAILURE_EMOJI = "❌"
 MESSAGE_LIMIT = 1800
-GAS_BASE_URL = "https://script.google.com/macros/s/AKfycbyS2gK65EMJxFi5_yzOZtBNpXRF-AOqfVIeo-aoMRNseZ62oSDuJkyBfWulY_dDoAs60Q/exec"
+WORKER_BASE_URL = "https://mbf-tools-logs-api.netherslayer87.workers.dev"
+
+
+def _action_url(action, code, extra_query=""):
+    suffix = f"&{extra_query}" if extra_query else ""
+    return f"{WORKER_BASE_URL}?action={action}&code={code}{suffix}"
+
+
+def _viewer_url(code):
+    return _action_url("view", code)
 
 
 def _status(response):
@@ -94,7 +103,7 @@ async def _main():
     try:
         message_response = await _maybe_await(
             http_request(
-                f"{GAS_BASE_URL}?action=message&code={code}",
+                _action_url("message", code),
                 timeout=15,
             )
         )
@@ -108,7 +117,7 @@ async def _main():
 
         summary_response = await _maybe_await(
             http_request(
-                f"{GAS_BASE_URL}?action=summary&code={code}&format=text",
+                _action_url("summary", code, "format=text"),
                 timeout=15,
             )
         )
@@ -119,12 +128,12 @@ async def _main():
             reply(
                 f"Could not fetch the full message view for `{code}`.\n\n"
                 f"{summary_body}\n\n"
-                f"Viewer: https://logs.sm0ke.org/{code}"
+                f"Viewer: {_viewer_url(code)}"
             )
         else:
             reply(
                 f"Could not find shared logs for `{code}`.\n\n"
-                f"Viewer: https://logs.sm0ke.org/{code}"
+                f"Viewer: {_viewer_url(code)}"
             )
         react(FAILURE_EMOJI)
     finally:
