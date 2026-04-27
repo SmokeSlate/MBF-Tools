@@ -42,6 +42,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var advancedLogView: TextView
     private lateinit var advancedLogScroll: ScrollView
     private lateinit var shareDebugLogsButton: Button
+    private var deviceSettingButtons: List<Button> = emptyList()
 
     @Volatile private var connectedDeviceName: String? = null
 
@@ -115,6 +116,8 @@ class MainActivity : ComponentActivity() {
 
         findViewById<Button>(R.id.btnResetSettings).setOnClickListener { showResetSettingsDialog() }
 
+        setupDeviceSettingsMenu()
+
         launchMbfButton.setOnClickListener { launchIntegratedMbf() }
         shareDebugLogsButton.setOnClickListener {
             DebugShareHelper.share(activity = this, sourceTag = "Advanced", onBusyChanged = ::setBusy)
@@ -167,6 +170,7 @@ class MainActivity : ComponentActivity() {
                     )
                     recommendationText.text = getString(R.string.recommendation_connected)
                     launchMbfButton.isEnabled = true
+                    deviceSettingButtons.forEach { it.isEnabled = true }
                 } else {
                     updateStatusValue(
                             connectionStatusValue,
@@ -176,6 +180,7 @@ class MainActivity : ComponentActivity() {
                     )
                     recommendationText.text = getString(R.string.recommendation_connect_first)
                     launchMbfButton.isEnabled = false
+                    deviceSettingButtons.forEach { it.isEnabled = false }
                 }
                 updateLogView()
             }
@@ -395,6 +400,122 @@ class MainActivity : ComponentActivity() {
         return command.exitCode == 0 && command.stdout.contains("connected", ignoreCase = true)
     }
 
+    private fun setupDeviceSettingsMenu() {
+        val actions =
+                listOf(
+                        R.id.btnRefresh72 to
+                                (getString(R.string.action_refresh_72) to
+                                        DeviceSettingsPresets.refreshRate(72)),
+                        R.id.btnRefresh90 to
+                                (getString(R.string.action_refresh_90) to
+                                        DeviceSettingsPresets.refreshRate(90)),
+                        R.id.btnRefresh120 to
+                                (getString(R.string.action_refresh_120) to
+                                        DeviceSettingsPresets.refreshRate(120)),
+                        R.id.btnCpu2 to
+                                ("CPU ${getString(R.string.action_level_2)}" to
+                                        DeviceSettingsPresets.cpuLevel(2)),
+                        R.id.btnCpu3 to
+                                ("CPU ${getString(R.string.action_level_3)}" to
+                                        DeviceSettingsPresets.cpuLevel(3)),
+                        R.id.btnCpu4 to
+                                ("CPU ${getString(R.string.action_level_4)}" to
+                                        DeviceSettingsPresets.cpuLevel(4)),
+                        R.id.btnGpu2 to
+                                ("GPU ${getString(R.string.action_level_2)}" to
+                                        DeviceSettingsPresets.gpuLevel(2)),
+                        R.id.btnGpu3 to
+                                ("GPU ${getString(R.string.action_level_3)}" to
+                                        DeviceSettingsPresets.gpuLevel(3)),
+                        R.id.btnGpu4 to
+                                ("GPU ${getString(R.string.action_level_4)}" to
+                                        DeviceSettingsPresets.gpuLevel(4)),
+                        R.id.btnPresetBattery to
+                                (getString(R.string.action_preset_battery) to
+                                        DeviceSettingsPresets.batterySaver()),
+                        R.id.btnPresetBalanced to
+                                (getString(R.string.action_preset_balanced) to
+                                        DeviceSettingsPresets.balanced()),
+                        R.id.btnPresetMax to
+                                (getString(R.string.action_preset_max) to
+                                        DeviceSettingsPresets.maxPower()),
+                        R.id.btnFoveationOff to
+                                (getString(R.string.action_foveation_off) to
+                                        DeviceSettingsPresets.foveation(0)),
+                        R.id.btnTexture2048 to
+                                (getString(R.string.action_texture_2048) to
+                                        DeviceSettingsPresets.textureSize(2048)),
+                        R.id.btnResetPerformance to
+                                (getString(R.string.action_reset_performance) to
+                                        DeviceSettingsPresets.resetOverrides())
+                )
+
+        deviceSettingButtons =
+                actions.map { (buttonId, action) ->
+                    findViewById<Button>(buttonId).apply {
+                        isEnabled = false
+                        setOnClickListener { applyDeviceSetting(action.first, action.second) }
+                    }
+                }
+    }
+
+    private fun applyDeviceSetting(label: String, commands: List<DeviceSettingCommand>) {
+        val device =
+                connectedDeviceName
+                        ?: runCatching { AdbManager.getAuthorizedDevices(this).firstOrNull()?.name }
+                                .getOrNull()
+        if (device == null) {
+            appendLog("Device setting blocked because no headset is connected.")
+            toast(getString(R.string.toast_connect_first))
+            refreshState()
+            return
+        }
+
+        appendLog("Applying device setting: $label.")
+        setBusy(true)
+        runAsync {
+            val failed =
+                    commands.firstOrNull { command ->
+                        val result =
+                                runCatching {
+                                            AdbManager.shellArgs(
+                                                    context = this,
+                                                    deviceName = device,
+                                                    command = command.args
+                                            )
+                                        }
+                                        .getOrElse {
+                                            AdbCommandResult(
+                                                    exitCode = 1,
+                                                    stdout = "",
+                                                    stderr = it.message ?: "Command failed."
+                                            )
+                                        }
+                        if (result.exitCode == 0) {
+                            appendLog("Applied ${command.label}.")
+                            false
+                        } else {
+                            appendLog(
+                                    "Failed ${command.label}: ${result.bestMessage("command failed")}"
+                            )
+                            true
+                        }
+                    }
+
+            runOnUiThread {
+                setBusy(false)
+                toast(
+                        if (failed == null) {
+                            getString(R.string.toast_device_setting_applied, label)
+                        } else {
+                            getString(R.string.toast_device_setting_failed, label)
+                        }
+                )
+                updateLogView()
+            }
+        }
+    }
+
     private fun launchIntegratedMbf() {
         AppPrefs.setGameId(this, gameIdInput.text.toString().trim())
 
@@ -457,6 +578,7 @@ class MainActivity : ComponentActivity() {
         findViewById<Button>(R.id.btnOpenDeveloperSettings).isEnabled = !isBusy
         findViewById<Button>(R.id.btnOpenSettings).isEnabled = !isBusy
         shareDebugLogsButton.isEnabled = !isBusy
+        deviceSettingButtons.forEach { it.isEnabled = !isBusy && connectedDeviceName != null }
         launchMbfButton.isEnabled = !isBusy && connectedDeviceName != null
     }
 

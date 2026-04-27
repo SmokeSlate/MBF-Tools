@@ -133,8 +133,9 @@ async function handleUpload(request, env, url, corsHeaders) {
 // ─── Get ──────────────────────────────────────────────────────────────────────
 
 async function handleGet(request, env, url, corsHeaders) {
-  const action = (url.searchParams.get('action') || '').trim().toLowerCase() || 'view';
-  const code = (url.searchParams.get('code') || '').trim().toLowerCase();
+  const route = parseLogRoute_(url);
+  const action = route.action;
+  const code = route.code;
 
   if (!code) {
     if (action === 'view') return htmlResponse(renderMissingCodePage_(), corsHeaders);
@@ -210,7 +211,54 @@ async function generateCode_(env) {
 }
 
 function buildActionUrl_(baseUrl, action, code) {
-  return `${baseUrl}?action=${encodeURIComponent(action)}&code=${encodeURIComponent(code)}`;
+  const safeCode = encodeURIComponent(code);
+  switch (action) {
+    case 'summary':
+      return `${baseUrl}/summary/${safeCode}`;
+    case 'message':
+      return `${baseUrl}/message/${safeCode}`;
+    case 'data':
+      return `${baseUrl}/data/${safeCode}`;
+    case 'aifix':
+      return `${baseUrl}/aifix/${safeCode}`;
+    case 'view':
+    default:
+      return `${baseUrl}/${safeCode}`;
+  }
+}
+
+function parseLogRoute_(url) {
+  const path = (url.pathname || '/').replace(/\/+$/, '') || '/';
+  const segments = path.split('/').filter(Boolean);
+
+  if (segments.length === 0) {
+    return {
+      action: normalizeAction_(url.searchParams.get('action')),
+      code: normalizeCode_(url.searchParams.get('code')),
+    };
+  }
+
+  const [first, second] = segments;
+  if (['view', 'summary', 'message', 'data', 'aifix'].includes(first)) {
+    return {
+      action: normalizeAction_(first),
+      code: normalizeCode_(second || url.searchParams.get('code')),
+    };
+  }
+
+  return {
+    action: 'view',
+    code: normalizeCode_(first),
+  };
+}
+
+function normalizeAction_(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized || 'view';
+}
+
+function normalizeCode_(value) {
+  return String(value || '').trim().toLowerCase();
 }
 
 function analyzePayload_(payload) {

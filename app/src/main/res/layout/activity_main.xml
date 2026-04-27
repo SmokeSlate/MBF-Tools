@@ -378,6 +378,266 @@
                     android:textAllCaps="false"
                     android:textColor="@color/text_primary" />
             </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:background="@drawable/bg_panel"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/device_settings_heading"
+                    android:textColor="@color/text_primary"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="@string/device_settings_body"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="15sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:text="@string/device_settings_refresh_rate"
+                    android:textColor="@color/text_primary"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btnRefresh72"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button_secondary"
+                        android:text="@string/action_refresh_72"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary" />
+
+                    <Button
+                        android:id="@+id/btnRefresh90"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button_secondary"
+                        android:text="@string/action_refresh_90"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary" />
+
+                    <Button
+                        android:id="@+id/btnRefresh120"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button_secondary"
+                        android:text="@string/action_refresh_120"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:text="@string/device_settings_cpu"
+                    android:textColor="@color/text_primary"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btnCpu2"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button_ghost"
+                        android:text="@string/action_level_2"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary" />
+
+                    <Button
+                        android:id="@+id/btnCpu3"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button_ghost"
+                        android:text="@string/action_level_3"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary" />
+
+                    <Button
+                        android:id="@+id/btnCpu4"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button_ghost"
+                        android:text="@string/action_level_4"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:text="@string/device_settings_gpu"
+                    android:textColor="@color/text_primary"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btnGpu2"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button_ghost"
+                        android:text="@string/action_level_2"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary" />
+
+                    <Button
+                        android:id="@+id/btnGpu3"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button_ghost"
+                        android:text="@string/action_level_3"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary" />
+
+                    <Button
+                        android:id="@+id/btnGpu4"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button_ghost"
+                        android:text="@string/action_level_4"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:text="@string/device_settings_presets"
+                    android:textColor="@color/text_primary"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btnPresetBattery"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button_secondary"
+                        android:text="@string/action_preset_battery"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary" />
+
+                    <Button
+                        android:id="@+id/btnPresetBalanced"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button_secondary"
+                        android:text="@string/action_preset_balanced"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary" />
+
+                    <Button
+                        android:id="@+id/btnPresetMax"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button_primary"
+                        android:text="@string/action_preset_max"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:text="@string/device_settings_other"
+                    android:textColor="@color/text_primary"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btnFoveationOff"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button_ghost"
+                        android:text="@string/action_foveation_off"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary" />
+
+                    <Button
+                        android:id="@+id/btnTexture2048"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button_ghost"
+                        android:text="@string/action_texture_2048"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary" />
+
+                    <Button
+                        android:id="@+id/btnResetPerformance"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button_ghost"
+                        android:text="@string/action_reset_performance"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary" />
+                </LinearLayout>
+            </LinearLayout>
         </LinearLayout>
     </ScrollView>
 
