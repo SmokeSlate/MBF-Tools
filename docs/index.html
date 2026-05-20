@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MBF Tools — Beat Saber Modding for Quest</title>
+
+  <!-- SEO -->
+  <meta name="description" content="MBF Tools is a free Android app for Meta Quest that guides you through Beat Saber modding — wireless ADB pairing, dev mode setup, and the integrated MBF mod loader, all in one place." />
+  <meta name="keywords" content="MBF Tools, Beat Saber modding, Meta Quest, Quest 3, Quest 2, Quest 3s, MBF Launcher, wireless ADB, android dev mode, Beat Saber mods, custom songs, custom sabers, no PC modding" />
+  <meta name="author" content="Sm0ke" />
+  <meta name="robots" content="index, follow" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://smokeslate.github.io/MBF-Tools/" />
+  <meta property="og:title" content="MBF Tools — Beat Saber Modding for Quest" />
+  <meta property="og:description" content="One app to set up wireless ADB, enable dev mode, and launch MBF — no PC needed." />
+  <meta property="og:image" content="https://smokeslate.github.io/MBF-Tools/assets/logo.png" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="MBF Tools — Beat Saber Modding for Quest" />
+  <meta name="twitter:description" content="One app to set up wireless ADB, enable dev mode, and launch MBF — no PC needed." />
+  <meta name="twitter:image" content="https://smokeslate.github.io/MBF-Tools/assets/logo.png" />
+
+  <link rel="icon" href="assets/logo.png" />
+  <link rel="canonical" href="https://smokeslate.github.io/MBF-Tools/" />
+
+  <style>
+    :root {
+      --bg-top: #08111F;
+      --bg-bottom: #13335B;
+      --surface: rgba(15, 27, 45, 0.8);
+      --surface-border: rgba(76, 178, 255, 0.3);
+      --brand-blue: #4CB2FF;
+      --brand-red: #F24E5E;
+      --text-primary: #F6FBFF;
+      --text-secondary: #BCD1E8;
+      --text-muted: #90A9C5;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(160deg, var(--bg-top) 0%, var(--bg-bottom) 100%);
+      min-height: 100vh;
+      color: var(--text-primary);
+    }
+
+    /* Nav */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 2rem;
+      border-bottom: 1px solid var(--surface-border);
+      background: rgba(8, 17, 31, 0.6);
+      backdrop-filter: blur(8px);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    nav .logo { display: flex; align-items: center; gap: 0.6rem; text-decoration: none; }
+    nav .logo img { width: 36px; height: 36px; border-radius: 8px; }
+    nav .logo span { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); }
+    nav .nav-links { display: flex; gap: 1.5rem; }
+    nav .nav-links a { color: var(--text-secondary); text-decoration: none; font-size: 0.9rem; transition: color 0.2s; }
+    nav .nav-links a:hover { color: var(--brand-blue); }
+
+    /* Hero */
+    .hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 5rem 2rem 4rem;
+      gap: 1.5rem;
+    }
+    .hero-logo {
+      width: 120px;
+      height: 120px;
+      border-radius: 24px;
+      box-shadow: 0 0 40px rgba(76, 178, 255, 0.25);
+    }
+    .badge {
+      display: inline-block;
+      background: rgba(76, 178, 255, 0.12);
+      border: 1px solid rgba(76, 178, 255, 0.35);
+      color: var(--brand-blue);
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.3rem 0.8rem;
+      border-radius: 999px;
+    }
+    .hero h1 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 800;
+      line-height: 1.1;
+      max-width: 700px;
+    }
+    .hero h1 span { color: var(--brand-blue); }
+    .hero p {
+      font-size: 1.1rem;
+      color: var(--text-secondary);
+      max-width: 560px;
+      line-height: 1.6;
+    }
+    .hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; }
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--brand-blue);
+      color: #08111F;
+      font-weight: 700;
+      font-size: 1rem;
+      padding: 0.75rem 1.75rem;
+      border-radius: 12px;
+      text-decoration: none;
+      transition: opacity 0.2s, transform 0.15s;
+    }
+    .btn-primary:hover { opacity: 0.88; transform: translateY(-1px); }
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: transparent;
+      color: var(--text-secondary);
+      font-weight: 600;
+      font-size: 1rem;
+      padding: 0.75rem 1.75rem;
+      border-radius: 12px;
+      border: 1px solid var(--surface-border);
+      text-decoration: none;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-secondary:hover { border-color: var(--brand-blue); color: var(--brand-blue); }
+
+    /* Features */
+    .section { padding: 4rem 2rem; max-width: 1100px; margin: 0 auto; }
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--brand-blue);
+      margin-bottom: 0.5rem;
+    }
+    .section-title { font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 800; margin-bottom: 0.5rem; }
+    .section-sub { color: var(--text-secondary); margin-bottom: 2.5rem; font-size: 1rem; }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.25rem;
+    }
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: 16px;
+      padding: 1.5rem;
+    }
+    .feature-icon { font-size: 1.8rem; margin-bottom: 0.75rem; }
+    .feature-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.4rem; }
+    .feature-card p { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.55; }
+
+    /* Steps */
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+    .step-card {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: 14px;
+      padding: 1.25rem;
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+    .step-num {
+      background: rgba(76, 178, 255, 0.15);
+      color: var(--brand-blue);
+      font-weight: 800;
+      font-size: 0.85rem;
+      border-radius: 8px;
+      min-width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .step-card h4 { font-size: 0.9rem; font-weight: 700; margin-bottom: 0.25rem; }
+    .step-card p { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5; }
+
+    /* Releases */
+    #releases { padding: 4rem 2rem; max-width: 800px; margin: 0 auto; }
+    .release-item {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .release-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .release-tag { color: var(--brand-blue); font-weight: 700; font-size: 1rem; }
+    .release-date { color: var(--text-muted); font-size: 0.8rem; }
+    .release-body { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6; white-space: pre-wrap; }
+    .release-body a { color: var(--brand-blue); }
+    .release-dl {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin-top: 0.75rem;
+      background: rgba(76, 178, 255, 0.12);
+      border: 1px solid rgba(76, 178, 255, 0.3);
+      color: var(--brand-blue);
+      padding: 0.4rem 0.9rem;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+    .release-dl:hover { background: rgba(76, 178, 255, 0.2); }
+    #releases-loading { color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0; }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 2rem;
+      border-top: 1px solid var(--surface-border);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+    footer a { color: var(--brand-blue); text-decoration: none; }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      nav .nav-links { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="#" class="logo">
+    <img src="assets/logo.png" alt="MBF Tools logo" />
+    <span>MBF Tools</span>
+  </a>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#how-it-works">How it works</a>
+    <a href="#releases">Releases</a>
+    <a href="https://wiki.sm0ke.org" target="_blank" rel="noopener">Wiki</a>
+    <a href="https://github.com/SmokeSlate/MBF-Tools" target="_blank" rel="noopener">GitHub</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <img class="hero-logo" src="assets/logo.png" alt="MBF Tools" />
+  <div class="badge">Free · Meta Quest · No PC Required</div>
+  <h1>Beat Saber Modding,<br /><span>all on your Quest</span></h1>
+  <p>MBF Tools guides you through enabling developer mode, pairing wirelessly, and launching MBF — the complete on-headset modding setup in a single app.</p>
+  <div class="hero-actions">
+    <a id="download-btn" href="https://github.com/SmokeSlate/MBF-Tools/releases/latest/download/app-release.apk" class="btn-primary">
+      ⬇ Download APK
+    </a>
+    <a href="https://wiki.sm0ke.org/#/mbftools" class="btn-secondary">
+      📖 Full Guide
+    </a>
+  </div>
+</section>
+
+<div class="section" id="features">
+  <div class="section-label">Features</div>
+  <div class="section-title">Everything you need in one app</div>
+  <div class="section-sub">No separate tools, no terminal, no PC. MBF Tools handles the full setup flow on your headset.</div>
+
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">🧭</div>
+      <h3>Guided Setup Wizard</h3>
+      <p>Step-by-step instructions for enabling Android developer mode, turning on Wireless Debugging, and pairing your headset — with real-time status checks at every step.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔗</div>
+      <h3>Wireless ADB Pairing</h3>
+      <p>Pair and connect to ADB wirelessly from inside the app using a 6-digit code. Automatic port detection included — no manual config needed.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🎮</div>
+      <h3>Integrated MBF Launcher</h3>
+      <p>Starts the upstream MBF native bridge locally and loads the live MBF web app in the built-in browser. Mods load faster and stay updated from the upstream source.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🛟</div>
+      <h3>Live Support Hub</h3>
+      <p>Access the live FAQ and fix form from the wiki without leaving the app. Get answers to common problems while staying in setup.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⚡</div>
+      <h3>Device Performance Controls</h3>
+      <p>Adjust CPU, GPU, and display refresh rate over ADB with one tap. Switch between Battery, Balanced, and Max presets instantly.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📋</div>
+      <h3>Debug Log Sharing</h3>
+      <p>One-tap log export sends a diagnostic payload to support staff with a share code, making troubleshooting fast and accurate.</p>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="how-it-works">
+  <div class="section-label">How it works</div>
+  <div class="section-title">Up and running in minutes</div>
+  <div class="section-sub">Follow the guided wizard on your headset — no computer, no ADB setup on your end.</div>
+
+  <div class="steps-grid">
+    <div class="step-card">
+      <div class="step-num">1</div>
+      <div>
+        <h4>Download &amp; install</h4>
+        <p>Sideload the APK from your Quest browser or via the download button above.</p>
+      </div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">2</div>
+      <div>
+        <h4>Open the guided setup</h4>
+        <p>MBF Tools walks you through enabling Android dev mode step by step.</p>
+      </div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">3</div>
+      <div>
+        <h4>Pair wirelessly</h4>
+        <p>Enter the 6-digit ADB pairing code when prompted. The app detects ports automatically.</p>
+      </div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">4</div>
+      <div>
+        <h4>Launch MBF</h4>
+        <p>Tap Launch MBF In This App — the mod loader opens in the built-in browser, ready to mod Beat Saber.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<section id="releases" style="max-width:800px;margin:0 auto;padding:4rem 2rem;">
+  <div class="section-label">Changelog</div>
+  <div class="section-title">Release Notes</div>
+  <div class="section-sub">Latest builds from GitHub Releases.</div>
+  <div id="releases-list">
+    <div id="releases-loading">Loading release notes…</div>
+  </div>
+</section>
+
+<footer>
+  <p>
+    MBF Tools by <a href="https://wiki.sm0ke.org" target="_blank" rel="noopener">Sm0ke</a> ·
+    <a href="https://github.com/SmokeSlate/MBF-Tools" target="_blank" rel="noopener">GitHub</a> ·
+    <a href="https://d.sm0ke.org" target="_blank" rel="noopener">Discord</a> ·
+    MIT License
+  </p>
+  <p style="margin-top:0.5rem;font-size:0.78rem;">
+    Not affiliated with Meta, Beat Games, or the BSMG.
+  </p>
+</footer>
+
+<script>
+  async function loadReleases() {
+    const container = document.getElementById('releases-list');
+    const loading = document.getElementById('releases-loading');
+    try {
+      const res = await fetch('https://api.github.com/repos/SmokeSlate/MBF-Tools/releases', {
+        headers: { Accept: 'application/vnd.github+json' }
+      });
+      if (!res.ok) throw new Error('GitHub API error');
+      const releases = await res.json();
+      loading.remove();
+
+      if (!releases.length) {
+        container.innerHTML = '<p style="color:var(--text-muted)">No releases yet.</p>';
+        return;
+      }
+
+      releases.slice(0, 6).forEach(r => {
+        const date = new Date(r.published_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+        const apk = r.assets.find(a => a.name.endsWith('.apk'));
+        const bodyEscaped = (r.body || 'No release notes.')
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+          .replace(/^### (.+)/gm, '<strong>$1</strong>')
+          .replace(/^## (.+)/gm, '<strong>$1</strong>');
+
+        const dlHtml = apk
+          ? `<a class="release-dl" href="${apk.browser_download_url}">⬇ Download APK</a>`
+          : `<a class="release-dl" href="${r.html_url}" target="_blank" rel="noopener">View on GitHub</a>`;
+
+        container.insertAdjacentHTML('beforeend', `
+          <div class="release-item">
+            <div class="release-header">
+              <span class="release-tag">${r.tag_name} ${r.prerelease ? '<span style="font-size:0.7rem;background:rgba(242,78,94,0.15);color:#F24E5E;border:1px solid rgba(242,78,94,0.35);padding:0.1rem 0.5rem;border-radius:999px;vertical-align:middle;">pre-release</span>' : ''}</span>
+              <span class="release-date">${date}</span>
+            </div>
+            <div class="release-body">${bodyEscaped}</div>
+            ${dlHtml}
+          </div>
+        `);
+      });
+
+      // Update download button to latest release APK
+      if (releases[0]) {
+        const latestApk = releases[0].assets.find(a => a.name.endsWith('.apk'));
+        if (latestApk) {
+          document.getElementById('download-btn').href = latestApk.browser_download_url;
+        }
+      }
+    } catch (e) {
+      loading.textContent = 'Could not load release notes. Visit the GitHub releases page for the latest download.';
+    }
+  }
+
+  loadReleases();
+</script>
+
+</body>
+</html>

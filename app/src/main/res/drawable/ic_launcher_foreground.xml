@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Foreground for the adaptive launcher icon. References the Beat Saber Modding logo bitmap. -->
+<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
+    android:src="@drawable/guide_step_intro_logo"
+    android:gravity="center"
+    android:scaleType="centerInside" />
