@@ -1,6 +1,10 @@
+<p align="center">
+  <img src="assets/logo.png" width="180" alt="MBF Tools logo" />
+</p>
+
 # MBF Tools and Setup
 
-> **Download:** [smokeslate.github.io/MBF-Tools](https://smokeslate.github.io/MBF-Tools)
+> **Download:** [mbf.tools](https://mbf.tools)
 
 Single-app Quest setup, support, and MBF integration for [mbf-launcher](https://github.com/DanTheMan827/mbf-launcher).
 
