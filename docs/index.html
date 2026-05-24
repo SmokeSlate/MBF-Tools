@@ -248,10 +248,30 @@
     }
     footer a { color: var(--brand-blue); text-decoration: none; }
 
-    /* Responsive */
-    @media (max-width: 600px) {
+    /* ── Responsive ───────────────────────────────────────────────────── */
+    @media (max-width: 640px) {
+      nav { padding: 0.75rem 1rem; }
       nav .nav-links { display: none; }
+
+      .hero { padding: 3rem 1.25rem 2.5rem; gap: 1.25rem; }
+      .hero-logo { width: min(48vw, 180px); }
+      .hero h1 { font-size: clamp(1.6rem, 7vw, 2.2rem); }
+      .hero p { font-size: 1rem; }
+      .hero-actions { flex-direction: column; align-items: stretch; width: 100%; max-width: 320px; }
+      .btn-primary, .btn-secondary { justify-content: center; width: 100%; }
+
+      .section { padding: 2.5rem 1.25rem; }
+      .features-grid { grid-template-columns: 1fr; }
+      .steps-grid { grid-template-columns: 1fr; }
+
+      #releases { padding: 2.5rem 1.25rem; }
+      .release-header { flex-direction: column; align-items: flex-start; gap: 0.25rem; }
     }
+
+    /* prevent any element from causing horizontal overflow */
+    html, body { overflow-x: hidden; }
+    * { max-width: 100%; }
+    img { max-width: 100%; height: auto; }
   </style>
 </head>
 <body>
