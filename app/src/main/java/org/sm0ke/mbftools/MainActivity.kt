@@ -403,6 +403,12 @@ class MainActivity : ComponentActivity() {
     private fun setupDeviceSettingsMenu() {
         val actions =
                 listOf(
+                        R.id.btnRefresh30 to
+                                (getString(R.string.action_refresh_30) to
+                                        DeviceSettingsPresets.refreshRate(30)),
+                        R.id.btnRefresh60 to
+                                (getString(R.string.action_refresh_60) to
+                                        DeviceSettingsPresets.refreshRate(60)),
                         R.id.btnRefresh72 to
                                 (getString(R.string.action_refresh_72) to
                                         DeviceSettingsPresets.refreshRate(72)),
@@ -430,6 +436,21 @@ class MainActivity : ComponentActivity() {
                         R.id.btnGpu4 to
                                 ("GPU ${getString(R.string.action_level_4)}" to
                                         DeviceSettingsPresets.gpuLevel(4)),
+                        R.id.btnFoveationOff to
+                                (getString(R.string.action_foveation_off) to
+                                        DeviceSettingsPresets.foveation(0)),
+                        R.id.btnFoveation1 to
+                                (getString(R.string.action_foveation_1) to
+                                        DeviceSettingsPresets.foveation(1)),
+                        R.id.btnFoveation2 to
+                                (getString(R.string.action_foveation_2) to
+                                        DeviceSettingsPresets.foveation(2)),
+                        R.id.btnFoveation3 to
+                                (getString(R.string.action_foveation_3) to
+                                        DeviceSettingsPresets.foveation(3)),
+                        R.id.btnPresetLowPower to
+                                (getString(R.string.action_preset_low_power) to
+                                        DeviceSettingsPresets.lowPower()),
                         R.id.btnPresetBattery to
                                 (getString(R.string.action_preset_battery) to
                                         DeviceSettingsPresets.batterySaver()),
@@ -439,9 +460,18 @@ class MainActivity : ComponentActivity() {
                         R.id.btnPresetMax to
                                 (getString(R.string.action_preset_max) to
                                         DeviceSettingsPresets.maxPower()),
-                        R.id.btnFoveationOff to
-                                (getString(R.string.action_foveation_off) to
-                                        DeviceSettingsPresets.foveation(0)),
+                        R.id.btnGuardianOff to
+                                (getString(R.string.action_guardian_off) to
+                                        DeviceSettingsPresets.guardianOff()),
+                        R.id.btnGuardianOn to
+                                (getString(R.string.action_guardian_on) to
+                                        DeviceSettingsPresets.guardianOn()),
+                        R.id.btnAswOff to
+                                (getString(R.string.action_asw_off) to
+                                        DeviceSettingsPresets.aswOff()),
+                        R.id.btnAswOn to
+                                (getString(R.string.action_asw_on) to
+                                        DeviceSettingsPresets.aswOn()),
                         R.id.btnTexture2048 to
                                 (getString(R.string.action_texture_2048) to
                                         DeviceSettingsPresets.textureSize(2048)),

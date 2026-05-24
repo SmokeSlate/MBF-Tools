@@ -237,8 +237,31 @@ class GuideActivity : ComponentActivity() {
                 }
         )
 
+        stepIndex = computeInitialStep()
+        if (stepIndex < 0) {
+            AppLog.info("Guide", "Setup already complete on guide open. Returning to home screen.")
+            startActivity(Intent(this, HomeActivity::class.java))
+            finish()
+            return
+        }
+        if (stepIndex > STEP_PRECHECK) {
+            AppLog.info(
+                    "Guide",
+                    "Skipping to step ${stepIndex + 1} because dev mode / wireless debugging already detected."
+            )
+        }
+
         updatePairSummary()
         renderStep()
+    }
+
+    private fun computeInitialStep(): Int {
+        if (AppPrefs.isSetupComplete(this)) return -1
+        return when {
+            isDeveloperModeEnabled() && isWirelessDebuggingSettingEnabled() -> STEP_PAIR
+            isDeveloperModeEnabled() -> STEP_WIRELESS_MENU
+            else -> STEP_PRECHECK
+        }
     }
 
     override fun onResume() {

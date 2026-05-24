@@ -418,9 +418,31 @@
                     android:orientation="horizontal">
 
                     <Button
+                        android:id="@+id/btnRefresh30"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button_ghost"
+                        android:text="@string/action_refresh_30"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary" />
+
+                    <Button
+                        android:id="@+id/btnRefresh60"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button_ghost"
+                        android:text="@string/action_refresh_60"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary" />
+
+                    <Button
                         android:id="@+id/btnRefresh72"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
                         android:layout_weight="1"
                         android:background="@drawable/bg_button_secondary"
                         android:text="@string/action_refresh_72"
@@ -548,6 +570,64 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="14dp"
+                    android:text="@string/device_settings_foveation"
+                    android:textColor="@color/text_primary"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btnFoveationOff"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button_ghost"
+                        android:text="@string/action_foveation_off"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary" />
+
+                    <Button
+                        android:id="@+id/btnFoveation1"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button_ghost"
+                        android:text="@string/action_foveation_1"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary" />
+
+                    <Button
+                        android:id="@+id/btnFoveation2"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button_ghost"
+                        android:text="@string/action_foveation_2"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary" />
+
+                    <Button
+                        android:id="@+id/btnFoveation3"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button_ghost"
+                        android:text="@string/action_foveation_3"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
                     android:text="@string/device_settings_presets"
                     android:textColor="@color/text_primary"
                     android:textStyle="bold" />
@@ -559,9 +639,20 @@
                     android:orientation="horizontal">
 
                     <Button
+                        android:id="@+id/btnPresetLowPower"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button_ghost"
+                        android:text="@string/action_preset_low_power"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary" />
+
+                    <Button
                         android:id="@+id/btnPresetBattery"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
                         android:layout_weight="1"
                         android:background="@drawable/bg_button_secondary"
                         android:text="@string/action_preset_battery"
@@ -595,7 +686,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="14dp"
-                    android:text="@string/device_settings_other"
+                    android:text="@string/device_settings_advanced"
                     android:textColor="@color/text_primary"
                     android:textStyle="bold" />
 
@@ -606,20 +697,59 @@
                     android:orientation="horizontal">
 
                     <Button
-                        android:id="@+id/btnFoveationOff"
+                        android:id="@+id/btnGuardianOff"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:background="@drawable/bg_button_ghost"
-                        android:text="@string/action_foveation_off"
+                        android:text="@string/action_guardian_off"
                         android:textAllCaps="false"
                         android:textColor="@color/text_primary" />
+
+                    <Button
+                        android:id="@+id/btnGuardianOn"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button_ghost"
+                        android:text="@string/action_guardian_on"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary" />
+
+                    <Button
+                        android:id="@+id/btnAswOff"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button_ghost"
+                        android:text="@string/action_asw_off"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary" />
+
+                    <Button
+                        android:id="@+id/btnAswOn"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button_ghost"
+                        android:text="@string/action_asw_on"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal">
 
                     <Button
                         android:id="@+id/btnTexture2048"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
                         android:layout_weight="1"
                         android:background="@drawable/bg_button_ghost"
                         android:text="@string/action_texture_2048"
@@ -631,8 +761,8 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="8dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/bg_button_ghost"
+                        android:layout_weight="2"
+                        android:background="@drawable/bg_button_secondary"
                         android:text="@string/action_reset_performance"
                         android:textAllCaps="false"
                         android:textColor="@color/text_primary" />

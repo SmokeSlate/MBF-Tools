@@ -21,14 +21,32 @@ object DeviceSettingsPresets {
                     command("Texture height $size", "setprop", "debug.oculus.textureHeight", size.toString())
             )
 
+    fun guardianOff(): List<DeviceSettingCommand> =
+            listOf(command("Guardian disabled", "setprop", "debug.oculus.enableGuardian", "0"))
+
+    fun guardianOn(): List<DeviceSettingCommand> =
+            listOf(command("Guardian enabled", "setprop", "debug.oculus.enableGuardian", "1"))
+
+    fun aswOff(): List<DeviceSettingCommand> =
+            listOf(command("ASW disabled", "setprop", "debug.oculus.forceASW", "0"))
+
+    fun aswOn(): List<DeviceSettingCommand> =
+            listOf(command("ASW enabled", "setprop", "debug.oculus.forceASW", "1"))
+
+    fun trackingFrequency(hz: Int): List<DeviceSettingCommand> =
+            listOf(command("Tracking frequency ${hz}Hz", "setprop", "debug.oculus.trackingFrequency", hz.toString()))
+
     fun batterySaver(): List<DeviceSettingCommand> =
-            cpuLevel(2) + gpuLevel(2) + foveation(3)
+            refreshRate(72) + cpuLevel(2) + gpuLevel(2) + foveation(3)
 
     fun balanced(): List<DeviceSettingCommand> =
-            cpuLevel(3) + gpuLevel(3) + foveation(2)
+            refreshRate(90) + cpuLevel(3) + gpuLevel(3) + foveation(2)
 
     fun maxPower(): List<DeviceSettingCommand> =
-            cpuLevel(4) + gpuLevel(4) + foveation(0)
+            refreshRate(120) + cpuLevel(4) + gpuLevel(4) + foveation(0)
+
+    fun lowPower(): List<DeviceSettingCommand> =
+            refreshRate(60) + cpuLevel(2) + gpuLevel(2) + foveation(3) + aswOn()
 
     fun resetOverrides(): List<DeviceSettingCommand> =
             listOf(
@@ -37,7 +55,9 @@ object DeviceSettingsPresets {
                     command("GPU default", "setprop", "debug.oculus.gpuLevel", "0"),
                     command("Foveation default", "setprop", "debug.oculus.foveation.level", "0"),
                     command("Texture width default", "setprop", "debug.oculus.textureWidth", "0"),
-                    command("Texture height default", "setprop", "debug.oculus.textureHeight", "0")
+                    command("Texture height default", "setprop", "debug.oculus.textureHeight", "0"),
+                    command("Guardian default", "setprop", "debug.oculus.enableGuardian", "1"),
+                    command("ASW default", "setprop", "debug.oculus.forceASW", "0")
             )
 
     private fun command(label: String, vararg args: String): DeviceSettingCommand =

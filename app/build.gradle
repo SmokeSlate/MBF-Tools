@@ -31,8 +31,8 @@ android {
         applicationId 'org.sm0ke.mbftools'
         minSdk 21
         targetSdk 34
-        versionCode 1
-        versionName '1.0'
+        versionCode 33
+        versionName '3.3'
     }
 
     buildTypes {
@@ -58,4 +58,6 @@ dependencies {
     implementation 'androidx.core:core-ktx:1.13.1'
     implementation 'androidx.activity:activity-ktx:1.9.2'
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.8.6'
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.jetbrains.kotlin:kotlin-test:1.9.25'
 }
