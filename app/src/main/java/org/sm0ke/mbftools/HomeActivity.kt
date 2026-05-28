@@ -1,11 +1,14 @@
 package org.sm0ke.mbftools
 
+import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Typeface
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.util.TypedValue
 import android.view.ViewGroup
 import android.widget.Button
@@ -13,6 +16,8 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import java.io.File
+import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -37,9 +42,13 @@ class HomeActivity : ComponentActivity() {
     private lateinit var openGuideButton: Button
     private lateinit var openAdvancedButton: Button
     private lateinit var shareDebugLogsButton: Button
+    private lateinit var updateStatus: TextView
+    private lateinit var checkUpdatesButton: Button
 
     @Volatile private var connectedDeviceName: String? = null
     @Volatile private var autoReconnectAttempted = false
+    @Volatile private var updateCheckInProgress = false
+    private var pendingUpdateApk: File? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,6 +67,8 @@ class HomeActivity : ComponentActivity() {
         openGuideButton = findViewById(R.id.btnHomeGuide)
         openAdvancedButton = findViewById(R.id.btnHomeAdvanced)
         shareDebugLogsButton = findViewById(R.id.btnHomeShareDebugLogs)
+        updateStatus = findViewById(R.id.txtUpdateStatus)
+        checkUpdatesButton = findViewById(R.id.btnHomeCheckUpdates)
 
         launchMbfButton.setOnClickListener { launchIntegratedMbf() }
         openFixButton.setOnClickListener { openUrl(FIX_FORM_URL) }
@@ -75,8 +86,10 @@ class HomeActivity : ComponentActivity() {
                     onBusyChanged = { busy -> setActionButtonsEnabled(!busy) }
             )
         }
+        checkUpdatesButton.setOnClickListener { checkForUpdates(showNoUpdateToast = true) }
 
         loadFaq()
+        checkForUpdates(showNoUpdateToast = false)
     }
 
     override fun onResume() {
@@ -87,6 +100,7 @@ class HomeActivity : ComponentActivity() {
         autoReconnectAttempted = false
         refreshState()
         startPolling()
+        resumePendingUpdateInstallIfAllowed()
     }
 
     override fun onPause() {
@@ -112,7 +126,7 @@ class HomeActivity : ComponentActivity() {
     private fun refreshState() {
         worker.execute {
             val setupComplete = AppPrefs.isSetupComplete(this)
-            var device =
+            val device =
                     runCatching { AdbManager.getAuthorizedDevices(this).firstOrNull() }.getOrNull()
             connectedDeviceName = device?.name
             val devMode = SetupState.isDeveloperModeEnabled(this)
@@ -126,7 +140,6 @@ class HomeActivity : ComponentActivity() {
                 )
                 val reconnectResult = autoReconnectAfterSetup()
                 if (reconnectResult.connectedDeviceName != null) {
-                    device = AdbDevice(reconnectResult.connectedDeviceName, true)
                     connectedDeviceName = reconnectResult.connectedDeviceName
                     AppLog.info(
                             "Home",
@@ -267,6 +280,178 @@ class HomeActivity : ComponentActivity() {
         items.forEach { item -> faqContainer.addView(createFaqEntryView(item)) }
     }
 
+    private fun checkForUpdates(showNoUpdateToast: Boolean) {
+        if (updateCheckInProgress) {
+            return
+        }
+
+        updateCheckInProgress = true
+        updateStatus.text = getString(R.string.update_status_checking)
+        checkUpdatesButton.isEnabled = false
+        AppLog.info("Updater", "Checking GitHub releases for updates.")
+
+        worker.execute {
+            val result = runCatching { AppUpdater.checkForUpdate(this) }
+            runOnUiThread {
+                updateCheckInProgress = false
+                checkUpdatesButton.isEnabled = true
+                result
+                        .onSuccess { check ->
+                            if (check.updateAvailable) {
+                                AppLog.info(
+                                        "Updater",
+                                        "Update available: ${check.release.versionLabel}."
+                                )
+                                updateStatus.text =
+                                        getString(
+                                                R.string.update_status_available,
+                                                check.release.versionLabel
+                                        )
+                                showUpdateAvailableDialog(check)
+                            } else {
+                                val status =
+                                        if (check.comparison == null) {
+                                            getString(
+                                                    R.string.update_status_unknown,
+                                                    check.release.versionLabel
+                                            )
+                                        } else {
+                                            getString(
+                                                    R.string.update_status_current,
+                                                    check.currentVersionName
+                                            )
+                                        }
+                                updateStatus.text = status
+                                if (showNoUpdateToast) {
+                                    toast(status)
+                                }
+                            }
+                        }
+                        .onFailure {
+                            val message = it.message ?: getString(R.string.update_status_failed)
+                            AppLog.warn("Updater", "Update check failed: $message")
+                            updateStatus.text = getString(R.string.update_status_failed)
+                            if (showNoUpdateToast) {
+                                toast(message)
+                            }
+                        }
+            }
+        }
+    }
+
+    private fun showUpdateAvailableDialog(check: AppUpdateCheck) {
+        val release = check.release
+        val notes =
+                release.body
+                        .trim()
+                        .take(MAX_RELEASE_NOTES_CHARS)
+                        .ifBlank { getString(R.string.update_no_release_notes) }
+        AlertDialog.Builder(this)
+                .setTitle(getString(R.string.update_available_title, release.versionLabel))
+                .setMessage(
+                        getString(
+                                R.string.update_available_body,
+                                check.currentVersionName,
+                                release.versionLabel,
+                                formatSize(release.asset.sizeBytes),
+                                notes
+                        )
+                )
+                .setNegativeButton(R.string.update_later, null)
+                .setNeutralButton(R.string.update_release_page) { _, _ ->
+                    if (release.htmlUrl.isNotBlank()) {
+                        openUrl(release.htmlUrl)
+                    }
+                }
+                .setPositiveButton(R.string.update_download_install) { _, _ ->
+                    downloadAndInstallUpdate(release)
+                }
+                .show()
+    }
+
+    private fun downloadAndInstallUpdate(release: GitHubRelease) {
+        setActionButtonsEnabled(false)
+        updateStatus.text = getString(R.string.update_status_downloading, release.versionLabel)
+        AppLog.info("Updater", "Downloading update APK ${release.asset.name}.")
+
+        worker.execute {
+            val result = runCatching { AppUpdater.downloadApk(this, release) }
+            runOnUiThread {
+                setActionButtonsEnabled(true)
+                result
+                        .onSuccess { apk ->
+                            AppLog.info("Updater", "Downloaded update APK to ${apk.absolutePath}.")
+                            updateStatus.text = getString(R.string.update_status_downloaded)
+                            launchDownloadedUpdate(apk)
+                        }
+                        .onFailure {
+                            val message = it.message ?: getString(R.string.update_download_failed)
+                            AppLog.error("Updater", "Update download failed: $message")
+                            updateStatus.text = getString(R.string.update_download_failed)
+                            toast(message)
+                        }
+            }
+        }
+    }
+
+    private fun launchDownloadedUpdate(apk: File) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                        !packageManager.canRequestPackageInstalls()
+        ) {
+            pendingUpdateApk = apk
+            showInstallPermissionDialog()
+            return
+        }
+
+        runCatching {
+                    updateStatus.text = getString(R.string.update_status_installing)
+                    startActivity(AppUpdater.createInstallIntent(this, apk))
+                }
+                .onSuccess {
+                    AppLog.info("Updater", "Opened Android package installer for update.")
+                }
+                .onFailure {
+                    val message = it.message ?: getString(R.string.update_install_failed)
+                    AppLog.error("Updater", "Could not open update installer: $message")
+                    updateStatus.text = getString(R.string.update_install_failed)
+                    toast(message)
+                }
+    }
+
+    private fun showInstallPermissionDialog() {
+        AlertDialog.Builder(this)
+                .setTitle(R.string.update_install_permission_title)
+                .setMessage(R.string.update_install_permission_body)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.update_action_open_install_settings) { _, _ ->
+                    openInstallPermissionSettings()
+                }
+                .show()
+    }
+
+    private fun openInstallPermissionSettings() {
+        val settingsIntent =
+                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
+                        .setData(Uri.parse("package:$packageName"))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val fallbackIntent =
+                Intent(Settings.ACTION_SECURITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+        if (!settingsIntent.tryLaunch()) {
+            fallbackIntent.tryLaunch()
+        }
+    }
+
+    private fun resumePendingUpdateInstallIfAllowed() {
+        val apk = pendingUpdateApk ?: return
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
+                        packageManager.canRequestPackageInstalls()
+        ) {
+            pendingUpdateApk = null
+            launchDownloadedUpdate(apk)
+        }
+    }
+
     private fun createFaqEntryView(item: FaqItem): LinearLayout {
         val container =
                 LinearLayout(this).apply {
@@ -351,6 +536,15 @@ class HomeActivity : ComponentActivity() {
         )
     }
 
+    private fun Intent.tryLaunch(): Boolean {
+        return try {
+            startActivity(this)
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     private fun buildBrowserUrl(baseUrl: String): String {
         val gameId = AppPrefs.getGameId(this)
         return if (gameId.isBlank()) {
@@ -374,6 +568,14 @@ class HomeActivity : ComponentActivity() {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
+    private fun formatSize(sizeBytes: Long): String {
+        if (sizeBytes <= 0L) {
+            return getString(R.string.update_size_unknown)
+        }
+        val sizeMb = sizeBytes / (1024.0 * 1024.0)
+        return String.format(Locale.US, "%.1f MB", sizeMb)
+    }
+
     private fun setActionButtonsEnabled(enabled: Boolean) {
         launchMbfButton.isEnabled = enabled && connectedDeviceName != null
         openFixButton.isEnabled = enabled
@@ -381,6 +583,7 @@ class HomeActivity : ComponentActivity() {
         openGuideButton.isEnabled = enabled
         openAdvancedButton.isEnabled = enabled
         shareDebugLogsButton.isEnabled = enabled
+        checkUpdatesButton.isEnabled = enabled && !updateCheckInProgress
     }
 
     companion object {
@@ -388,6 +591,7 @@ class HomeActivity : ComponentActivity() {
         private const val FIX_FORM_URL = "https://wiki.sm0ke.org/fix"
         private const val FAQ_PAGE_URL = "https://wiki.sm0ke.org/#/faq"
         private const val POLL_INTERVAL_MS = 3_000L
+        private const val MAX_RELEASE_NOTES_CHARS = 900
     }
 }
 
