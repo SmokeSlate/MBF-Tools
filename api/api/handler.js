@@ -2,6 +2,7 @@ const COMMAND_PREFIX = '!s';
 const CODE_TTL = 60 * 60 * 24 * 30; // 30 days
 const ADMIN_HASH = 'e447973503108005e9143ebec44e5f4e2e025c04253ce80c4b113537fccff97d';
 const ADMIN_COOKIE = 'mbf_admin';
+const PUBLIC_BASE_URL = 'https://logs.sm0ke.org';
 
 export default {
   async fetch(request, env) {
@@ -103,7 +104,6 @@ async function handleUpload(request, env, url, corsHeaders) {
 
     const code = await generateCode_(env);
     const analysis = analyzePayload_(payload);
-    const baseUrl = `${url.protocol}//${url.host}`;
     const record = {
       code,
       createdAt: new Date().toISOString(),
@@ -120,10 +120,10 @@ async function handleUpload(request, env, url, corsHeaders) {
 
     return jsonResponse({
       ok: true, code, command: record.command, summary: record.summary,
-      viewerUrl: buildActionUrl_(baseUrl, 'view', code),
-      summaryUrl: buildActionUrl_(baseUrl, 'summary', code),
-      messageUrl: buildActionUrl_(baseUrl, 'message', code),
-      dataUrl: buildActionUrl_(baseUrl, 'data', code),
+      viewerUrl: buildActionUrl_(PUBLIC_BASE_URL, 'view', code),
+      summaryUrl: buildActionUrl_(PUBLIC_BASE_URL, 'summary', code),
+      messageUrl: buildActionUrl_(PUBLIC_BASE_URL, 'message', code),
+      dataUrl: buildActionUrl_(PUBLIC_BASE_URL, 'data', code),
     }, 200, corsHeaders);
   } catch (error) {
     return jsonResponse({ ok: false, error: error?.message || String(error) }, 500, corsHeaders);
@@ -151,8 +151,6 @@ async function handleGet(request, env, url, corsHeaders) {
   }
 
   const record = JSON.parse(raw);
-  const baseUrl = `${url.protocol}//${url.host}`;
-
   switch (action) {
     case 'summary': {
       const format = (url.searchParams.get('format') || '').trim().toLowerCase();
@@ -160,12 +158,12 @@ async function handleGet(request, env, url, corsHeaders) {
       return jsonResponse({ ok: true, code: record.code, summary: record.summary, issues: record.issues, currentGuideStep: record.payload?.setup?.currentGuideStep || '', createdAt: record.createdAt }, 200, corsHeaders);
     }
     case 'message':
-      return textResponse(buildMessageText_(record, baseUrl), corsHeaders);
+      return textResponse(buildMessageText_(record, PUBLIC_BASE_URL), corsHeaders);
     case 'data':
       return jsonResponse({ ok: true, code: record.code, createdAt: record.createdAt, summary: record.summary, issues: record.issues, payload: record.payload }, 200, corsHeaders);
     case 'view':
     default:
-      return htmlResponse(renderViewerPage_(record, baseUrl), corsHeaders);
+      return htmlResponse(renderViewerPage_(record, PUBLIC_BASE_URL), corsHeaders);
   }
 }
 
@@ -480,7 +478,7 @@ function renderAdminPage_(rows, nextCursor) {
         <td style="color:#aaa;">${escapeHtml_(r.createdAt ? new Date(r.createdAt).toLocaleString() : '—')}</td>
         <td style="max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#cde;">${escapeHtml_(r.summary || '—')}</td>
         <td><div style="display:flex;gap:6px;align-items:center;">
-          <a href="/?action=view&code=${encodeURIComponent(r.code)}" target="_blank"><button class="btn btn-sm" type="button">View</button></a>
+          <a href="${buildActionUrl_(PUBLIC_BASE_URL, 'view', r.code)}" target="_blank"><button class="btn btn-sm" type="button">View</button></a>
           <form method="POST" action="/admin/delete" style="display:contents;" onsubmit="return confirm('Delete log ${escapeHtml_(r.code)}?')">
             <input type="hidden" name="code" value="${escapeHtml_(r.code)}"/>
             <button class="btn btn-sm btn-danger" type="submit">Delete</button>

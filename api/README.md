@@ -34,14 +34,14 @@ Base upload URL:
 POST https://script.google.com/macros/s/DEPLOYMENT_ID/exec
 ```
 
-Returned raw GAS URLs:
+Legacy query URLs still supported:
 
 - viewer: `?action=view&code=abc12`
 - summary: `?action=summary&code=abc12`
 - message: `?action=message&code=abc12`
 - data: `?action=data&code=abc12`
 
-Recommended public routes in front of GAS:
+Canonical public routes:
 
 - viewer: `https://logs.sm0ke.org/abc12`
 - summary: `https://logs.sm0ke.org/summary/abc12`
@@ -67,10 +67,10 @@ Response:
   "code": "abc12",
   "command": "!s abc12",
   "summary": "Wireless Debugging is turned off. No authorized ADB headset connection is active.",
-  "viewerUrl": "https://.../exec?action=view&code=abc12",
-  "summaryUrl": "https://.../exec?action=summary&code=abc12",
-  "messageUrl": "https://.../exec?action=message&code=abc12",
-  "dataUrl": "https://.../exec?action=data&code=abc12"
+  "viewerUrl": "https://logs.sm0ke.org/abc12",
+  "summaryUrl": "https://logs.sm0ke.org/summary/abc12",
+  "messageUrl": "https://logs.sm0ke.org/message/abc12",
+  "dataUrl": "https://logs.sm0ke.org/data/abc12"
 }
 ```
 
@@ -130,8 +130,8 @@ Wireless Debugging: Off
 Beat Saber: com.beatgames.beatsaber 1.40.0
 Mods (3): SongCore, BS Utils, Qosmetics
 Logs: 1 error(s), 4 warning(s), 137 line(s)
-Viewer: https://.../exec?action=view&code=abc12
-Summary API: https://.../exec?action=summary&code=abc12
+Viewer: https://logs.sm0ke.org/abc12
+Summary API: https://logs.sm0ke.org/summary/abc12
 ```
 
 This is the endpoint your bot bridge should fetch and relay into chat.
@@ -153,7 +153,7 @@ GET https://script.google.com/macros/s/AKfycbyS2gK65EMJxFi5_yzOZtBNpXRF-AOqfVIeo
 Method:
 
 ```text
-GET ?action=view&code=abc12
+GET https://logs.sm0ke.org/abc12
 ```
 
 Response type:
