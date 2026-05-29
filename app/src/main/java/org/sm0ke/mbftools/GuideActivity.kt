@@ -253,6 +253,14 @@ class GuideActivity : ComponentActivity() {
 
         updatePairSummary()
         renderStep()
+
+        // When auto-skipping to the Wireless Debugging step, the openDeveloperOptions() call
+        // inside maybeAutoOpenCurrentStep() fires during onCreate() — before the activity is
+        // fully resumed — so the system silently drops it. Re-fire it after the activity
+        // settles to guarantee developer settings actually opens.
+        if (stepIndex == STEP_WIRELESS_MENU) {
+            mainHandler.postDelayed({ openDeveloperOptions() }, 400)
+        }
     }
 
     private fun computeInitialStep(): Int {
