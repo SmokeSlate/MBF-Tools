@@ -23,6 +23,7 @@ import kotlinx.coroutines.withContext
 class DiagnoseActivity : ComponentActivity() {
 
     private lateinit var btnDiagnoseBack: Button
+    private lateinit var btnDiagPatchDiscord: Button
     private lateinit var txtStatusHeading: TextView
     private lateinit var panelStatusItems: LinearLayout
     private lateinit var btnRefreshStatus: Button
@@ -40,6 +41,7 @@ class DiagnoseActivity : ComponentActivity() {
         setContentView(R.layout.activity_diagnose)
 
         btnDiagnoseBack = findViewById(R.id.btnDiagnoseBack)
+        btnDiagPatchDiscord = findViewById(R.id.btnDiagPatchDiscord)
         txtStatusHeading = findViewById(R.id.txtStatusHeading)
         panelStatusItems = findViewById(R.id.panelStatusItems)
         btnRefreshStatus = findViewById(R.id.btnRefreshStatus)
@@ -51,6 +53,7 @@ class DiagnoseActivity : ComponentActivity() {
         btnDiagOpenGuide = findViewById(R.id.btnDiagOpenGuide)
 
         btnDiagnoseBack.setOnClickListener { finish() }
+        btnDiagPatchDiscord.setOnClickListener { openInBrowser(DISCORD_URL) }
         btnRefreshStatus.setOnClickListener { runQuickCheck() }
         btnDeepScanAndDiagnose.setOnClickListener { runDeepScanAndDiagnose() }
         btnDiagOpenDevSettings.setOnClickListener { openDeveloperSettings() }
@@ -356,6 +359,7 @@ class DiagnoseActivity : ComponentActivity() {
 
     companion object {
         private const val TAG = "Diagnose"
+        private const val DISCORD_URL = "https://d.sm0ke.org"
     }
 }
 

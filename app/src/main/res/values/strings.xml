@@ -195,4 +195,41 @@
     <string name="share_logs_close">Close</string>
     <string name="share_logs_message">Logs exported, use command !s %1$s or go to https://logs.sm0ke.org/%1$s.\n\nContact Support:\nDiscord (recommended): https://d.sm0ke.org/\nSupport Chat: https://wiki.sm0ke.org/support</string>
     <string name="share_logs_error_message">The log share request failed.\n\n%1$s</string>
+
+    <!-- Diagnose screen -->
+    <string name="diag_screen_title">Diagnostics</string>
+    <string name="diag_screen_subtitle">Quick status checks and shortcuts to fix the most common setup problems.</string>
+    <string name="home_action_diagnose">Diagnose</string>
+    <string name="diag_status_title">Status</string>
+    <string name="diag_status_checking">Checking…</string>
+    <string name="diag_check_setup_done">Setup complete</string>
+    <string name="diag_check_setup_incomplete">Setup not complete — run the guide first</string>
+    <string name="diag_check_devmode_on">Android developer mode: on</string>
+    <string name="diag_check_devmode_off">Android developer mode: not detected</string>
+    <string name="diag_check_wireless_on">Wireless Debugging: on</string>
+    <string name="diag_check_wireless_off">Wireless Debugging: off</string>
+    <string name="diag_check_adb_connected">ADB connected: %1$s</string>
+    <string name="diag_check_adb_disconnected">ADB: no authorized headset connected</string>
+    <string name="diag_check_bs_found">Beat Saber installed (%1$s)</string>
+    <string name="diag_check_bs_missing">Beat Saber not found (%1$s)</string>
+    <string name="diag_hint_devmode">Open Developer Settings and enable developer mode first.</string>
+    <string name="diag_hint_wireless">Open Developer Settings and turn on Wireless Debugging.</string>
+    <string name="diag_hint_adb">Use the Setup Guide to pair and connect your headset.</string>
+    <string name="diag_action_refresh">Refresh Status</string>
+    <string name="diag_settings_title">Settings Shortcuts</string>
+    <string name="diag_settings_body">Open the relevant Android settings panels directly from here.</string>
+    <string name="diag_connection_title">Connection</string>
+    <string name="diag_connection_body">Try reconnecting to your headset or reopen the setup guide to pair again.</string>
+    <string name="diag_action_reconnect">Reconnect Headset</string>
+    <string name="diag_action_open_guide">Open Setup Guide</string>
+    <string name="diag_patch_title">⚠ MBF says "Awaiting patch generation"?</string>
+    <string name="diag_patch_body">This is normal when Beat Saber has just updated. The MBF team has to generate new mod patches, which takes 1–48 hours. You cannot mod until patches are ready.\n\nFix: wait and check back later. Watch the Discord for patch announcements so you know the moment it\'s ready.</string>
+    <string name="diag_patch_action">Watch Discord for patch updates</string>
+    <string name="diag_ai_title">AI Diagnosis</string>
+    <string name="diag_ai_body">Collects your device logs, uploads them, and opens the AI diagnosis page in the browser. Takes up to 30 seconds.</string>
+    <string name="diag_action_deep_scan">Collect Logs &amp; Open AI Diagnosis</string>
+    <string name="diag_deep_scan_loading_title">Collecting Logs</string>
+    <string name="diag_deep_scan_loading_body">Scanning your headset and uploading diagnostics. This may take a few seconds…</string>
+    <string name="diag_deep_scan_success">Logs uploaded (code: %1$s). Opening AI diagnosis in browser…</string>
+    <string name="diag_deep_scan_failed">Upload failed: %1$s</string>
 </resources>
