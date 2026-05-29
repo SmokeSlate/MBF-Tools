@@ -4,7 +4,7 @@ const ADMIN_HASH = 'e447973503108005e9143ebec44e5f4e2e025c04253ce80c4b113537fccf
 const ADMIN_COOKIE = 'mbf_admin';
 const PUBLIC_BASE_URL = 'https://logs.sm0ke.org';
 const OPENROUTER_API = 'https://openrouter.ai/api/v1/chat/completions';
-const DIAG_MODEL = 'google/gemma-3-27b-it:free';
+const DIAG_MODEL = 'openrouter/free';
 const DIAG_MAX_TOKENS = 1200;
 const DIAG_MAX_ITERATIONS = 4;
 
@@ -251,131 +251,117 @@ async function runDiagnosisAgent(env, record) {
   const logStats = payload.logStats || {};
   const issues = Array.isArray(record.issues) ? record.issues : [];
 
-  const systemPrompt = [
-    'You are an expert support assistant for MBF Tools — an Android app that helps users mod Beat Saber on Meta Quest headsets using ADB over Wi-Fi.',
-    'Analyze the provided diagnostic data and give the user clear, numbered, step-by-step fix instructions.',
-    'Be specific: reference exact settings, app names, and steps relevant to Meta Quest / ADB / Beat Saber modding.',
-    'If the issue is unclear or you need more detail, call the available tools to get Beat Saber logs, app logs, or the mod list before responding.',
-    'Do not call a tool more than once. Keep your final answer concise and actionable.',
-  ].join('\n');
+  // Pull real data out of the record to embed directly in the prompt.
+  // Keep it focused — only the signal-rich parts, not raw bulk logs.
+  const modItems = Array.isArray(mods.items) ? mods.items : [];
+  const interesting = Array.isArray(beatSaberLogs.interesting) ? beatSaberLogs.interesting.slice(0, 20) : [];
+  const recentProblems = Array.isArray(logStats.recentProblems) ? logStats.recentProblems.slice(0, 10) : [];
+  // Only fall back to raw BS lines if there are no interesting ones AND the count is small
+  const bsLines = interesting.length === 0 && (beatSaberLogs.lineCount || 0) <= 30
+    ? (Array.isArray(beatSaberLogs.lines) ? beatSaberLogs.lines : [])
+    : [];
 
-  const userContent = [
-    '**Detected issues:**',
-    issues.length > 0 ? issues.map(i => `- ${i}`).join('\n') : '- No explicit issues detected.',
-    '',
-    '**Setup:**',
-    `- ADB connected: ${setup.connectedDevice ? `yes (${setup.connectedDevice})` : 'no'}`,
-    `- Developer mode: ${setup.developerModeEnabled ? 'on' : 'off'}`,
-    `- Wireless debugging: ${setup.wirelessDebuggingEnabled ? 'on' : 'off'}`,
-    `- Current guide step: ${setup.currentGuideStep || 'not in setup'}`,
-    '',
-    '**Beat Saber:**',
-    `- Installed: ${beatSaber.installed ? `yes — ${beatSaber.packageName || ''} ${beatSaber.versionName || ''}`.trim() : 'no'}`,
-    `- Mods detected: ${mods.count || 0}`,
-    '',
-    '**Log stats:**',
-    `- App errors: ${logStats.errorCount || 0}, warnings: ${logStats.warnCount || 0}`,
-    `- Beat Saber log lines: ${beatSaberLogs.lineCount || 0} (${beatSaberLogs.interestingCount || 0} interesting)`,
-    '',
-    `**Summary:** ${record.summary || 'none'}`,
-  ].join('\n');
+  const systemPrompt =
+    'You are an expert support assistant for MBF Tools — a Quest app that mods Beat Saber using wireless ADB.\n' +
+    'The user has shared their device diagnostics. Give clear numbered fix steps.\n' +
+    'IMPORTANT: base every recommendation strictly on the data below. ' +
+    'Do not invent mod names, ADB commands, or issues that are not present in the data.';
 
-  const tools = [
-    {
-      type: 'function',
-      function: {
-        name: 'get_bs_log_lines',
-        description: 'Returns captured Beat Saber log lines and any crash/error highlights. Call this when Beat Saber errors or crashes are suspected.',
-        parameters: { type: 'object', properties: {}, required: [] },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'get_app_log_text',
-        description: 'Returns the MBF app log output. Call this when app-level errors or connection issues need investigation.',
-        parameters: { type: 'object', properties: {}, required: [] },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'get_mod_list',
-        description: 'Returns the list of installed mods. Call this when mod conflicts or missing mods may be the cause.',
-        parameters: { type: 'object', properties: {}, required: [] },
-      },
-    },
+  // Build the full context message
+  const parts = [
+    '## MBF Tools Diagnostic Report',
+    `Uploaded: ${record.createdAt || 'unknown'}`,
+    '',
+    '### Device',
+    `- Model: ${payload.device?.manufacturer || ''} ${payload.device?.model || ''} (Android ${payload.device?.release || ''})`,
+    `- MBF Tools version: ${payload.app?.versionName || 'unknown'}`,
+    '',
+    '### Setup Status',
+    `- Developer mode: ${setup.developerModeEnabled ? 'ON' : 'OFF'}`,
+    `- Wireless Debugging: ${setup.wirelessDebuggingEnabled ? 'ON' : 'OFF'}`,
+    `- ADB connected device: ${setup.connectedDevice || 'none'}`,
+    `- Current guide step: ${setup.currentGuideStep || 'none (setup complete)'}`,
+    `- Pairing port: ${setup.pairingPort || 'unknown'}`,
+    `- Debug port: ${setup.debugPort || 'unknown'}`,
+    '',
+    '### Beat Saber',
+    `- Package: ${beatSaber.packageName || 'unknown'}`,
+    `- Installed: ${beatSaber.installed ? 'yes' : 'no'}`,
+    `- Version: ${beatSaber.versionName || 'unknown'} (code ${beatSaber.versionCode || '?'})`,
+    `- Detection: ${beatSaber.detectionSource || 'unknown'}`,
+    '',
+    '### Installed Mods',
+    modItems.length > 0
+      ? `${modItems.length} mods: ${modItems.join(', ')}`
+      : 'No mods detected.',
   ];
 
-  const toolHandlers = {
-    get_bs_log_lines: () => {
-      const lines = Array.isArray(beatSaberLogs.lines) ? beatSaberLogs.lines.slice(0, 60) : [];
-      const interesting = Array.isArray(beatSaberLogs.interesting) ? beatSaberLogs.interesting : [];
-      return JSON.stringify({ lineCount: beatSaberLogs.lineCount || 0, interesting, lines });
-    },
-    get_app_log_text: () => {
-      const text = String(payload.logsText || '').slice(0, 3000);
-      return text || 'No app log text was captured.';
-    },
-    get_mod_list: () => {
-      const items = Array.isArray(mods.items) ? mods.items : [];
-      return JSON.stringify({ count: mods.count || 0, mods: items });
-    },
-  };
-
-  const messages = [
-    { role: 'system', content: systemPrompt },
-    { role: 'user', content: userContent },
-  ];
-
-  for (let i = 0; i < DIAG_MAX_ITERATIONS; i++) {
-    const res = await fetch(OPENROUTER_API, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${env.OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://wiki.sm0ke.org',
-        'X-Title': 'MBF Tools Diagnostics',
-      },
-      body: JSON.stringify({
-        model: DIAG_MODEL,
-        messages,
-        tools,
-        tool_choice: 'auto',
-        max_tokens: DIAG_MAX_TOKENS,
-      }),
-      signal: AbortSignal.timeout(30000),
-    });
-
-    if (!res.ok) {
-      const errText = await res.text().catch(() => '');
-      throw new Error(`OpenRouter error ${res.status}: ${errText.slice(0, 200)}`);
-    }
-
-    const data = await res.json();
-    const choice = data.choices?.[0];
-    if (!choice) throw new Error('Empty response from AI.');
-
-    const msg = choice.message;
-    messages.push(msg);
-
-    if (choice.finish_reason === 'tool_calls' && Array.isArray(msg.tool_calls)) {
-      for (const tc of msg.tool_calls) {
-        const handler = toolHandlers[tc.function?.name];
-        messages.push({
-          role: 'tool',
-          tool_call_id: tc.id,
-          content: handler ? handler() : 'Tool not available.',
-        });
-      }
-      continue;
-    }
-
-    return (typeof msg.content === 'string' ? msg.content : '') || 'No diagnosis available.';
+  if (issues.length > 0) {
+    parts.push('', '### Auto-detected Issues');
+    issues.forEach(i => parts.push(`- ${i}`));
   }
 
-  const last = [...messages].reverse().find(m => m.role === 'assistant' && typeof m.content === 'string');
-  return last?.content || 'Diagnosis exceeded iteration limit.';
+  if (interesting.length > 0) {
+    parts.push('', '### Beat Saber Crash / Error Lines');
+    parts.push('```');
+    interesting.forEach(l => parts.push(l));
+    parts.push('```');
+  } else if (bsLines.length > 0) {
+    parts.push('', `### Beat Saber Log Lines (last ${bsLines.length})`);
+    parts.push('```');
+    bsLines.forEach(l => parts.push(l));
+    parts.push('```');
+  } else {
+    parts.push('', '### Beat Saber Logs', 'No Beat Saber log lines were captured.');
+  }
+
+  if (recentProblems.length > 0) {
+    parts.push('', '### Recent MBF App Problems');
+    parts.push('```');
+    recentProblems.forEach(l => parts.push(l));
+    parts.push('```');
+  }
+
+  parts.push('', `### Log Summary`, record.summary || 'No summary.');
+  parts.push('', '---');
+  parts.push(
+    'Based ONLY on the data above, write a complete diagnosis. Always include:',
+    '1. A 1-2 sentence summary of what the data shows.',
+    '2. Numbered fix steps for every issue found (or confirmation that the setup looks healthy).',
+    '3. Any mods or log lines that look suspicious and what to do about them.',
+    'Do not invent issues or commands not supported by the data. Minimum 3 numbered steps.'
+  );
+
+  const userContent = parts.join('\n');
+
+  const res = await fetch(OPENROUTER_API, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${env.OPENROUTER_API_KEY}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://wiki.sm0ke.org',
+      'X-Title': 'MBF Tools Diagnostics',
+    },
+    body: JSON.stringify({
+      model: DIAG_MODEL,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userContent },
+      ],
+      max_tokens: DIAG_MAX_TOKENS,
+    }),
+    signal: AbortSignal.timeout(40000),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`OpenRouter error ${res.status}: ${errText.slice(0, 200)}`);
+  }
+
+  const data = await res.json();
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) throw new Error('Empty response from AI.');
+  return content;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
