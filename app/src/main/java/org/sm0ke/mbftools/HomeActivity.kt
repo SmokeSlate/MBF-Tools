@@ -42,6 +42,7 @@ class HomeActivity : ComponentActivity() {
     private lateinit var openGuideButton: Button
     private lateinit var openAdvancedButton: Button
     private lateinit var shareDebugLogsButton: Button
+    private lateinit var diagnoseButton: Button
     private lateinit var updateStatus: TextView
     private lateinit var checkUpdatesButton: Button
 
@@ -67,6 +68,7 @@ class HomeActivity : ComponentActivity() {
         openGuideButton = findViewById(R.id.btnHomeGuide)
         openAdvancedButton = findViewById(R.id.btnHomeAdvanced)
         shareDebugLogsButton = findViewById(R.id.btnHomeShareDebugLogs)
+        diagnoseButton = findViewById(R.id.btnHomeDiagnose)
         updateStatus = findViewById(R.id.txtUpdateStatus)
         checkUpdatesButton = findViewById(R.id.btnHomeCheckUpdates)
 
@@ -85,6 +87,9 @@ class HomeActivity : ComponentActivity() {
                     sourceTag = "Home",
                     onBusyChanged = { busy -> setActionButtonsEnabled(!busy) }
             )
+        }
+        diagnoseButton.setOnClickListener {
+            startActivity(Intent(this, DiagnoseActivity::class.java))
         }
         checkUpdatesButton.setOnClickListener { checkForUpdates(showNoUpdateToast = true) }
 
@@ -583,6 +588,7 @@ class HomeActivity : ComponentActivity() {
         openGuideButton.isEnabled = enabled
         openAdvancedButton.isEnabled = enabled
         shareDebugLogsButton.isEnabled = enabled
+        diagnoseButton.isEnabled = enabled
         checkUpdatesButton.isEnabled = enabled && !updateCheckInProgress
     }
 
