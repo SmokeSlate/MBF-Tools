@@ -19,6 +19,7 @@ SUCCESS_EMOJI = "✅"
 FAILURE_EMOJI = "❌"
 MESSAGE_LIMIT = 1800
 GAS_BASE_URL = "https://script.google.com/macros/s/AKfycbyS2gK65EMJxFi5_yzOZtBNpXRF-AOqfVIeo-aoMRNseZ62oSDuJkyBfWulY_dDoAs60Q/exec"
+DIAGNOSE_URL = "https://wiki.sm0ke.org/fix?log="
 
 
 def _status(response):
@@ -103,6 +104,7 @@ async def _main():
 
         if _request_succeeded(message_status, message_body):
             _send_long_reply(message_body)
+            reply(f"-# 🔍 AI Diagnosis: {DIAGNOSE_URL}{code}")
             react(SUCCESS_EMOJI)
             return
 
@@ -119,12 +121,14 @@ async def _main():
             reply(
                 f"Could not fetch the full message view for `{code}`.\n\n"
                 f"{summary_body}\n\n"
-                f"Viewer: https://logs.sm0ke.org/{code}"
+                f"Viewer: https://logs.sm0ke.org/{code}\n"
+                f"🔍 AI Diagnosis: {DIAGNOSE_URL}{code}"
             )
         else:
             reply(
                 f"Could not find shared logs for `{code}`.\n\n"
-                f"Viewer: https://logs.sm0ke.org/{code}"
+                f"Viewer: https://logs.sm0ke.org/{code}\n"
+                f"🔍 AI Diagnosis: {DIAGNOSE_URL}{code}"
             )
         react(FAILURE_EMOJI)
     finally:

@@ -7,6 +7,9 @@ preview_urls = false
 binding = "LOGS"
 id = "99d2d10849dc4644beeaffe5ffad70c3"
 
+# Set OPENROUTER_API_KEY as a Worker secret:  wrangler secret put OPENROUTER_API_KEY
+# Get a free key at https://openrouter.ai/keys
+
 [observability]
 enabled = false
 head_sampling_rate = 1
