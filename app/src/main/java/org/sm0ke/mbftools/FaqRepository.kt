@@ -39,7 +39,8 @@ object FaqRepository {
         }
 
         markdown.lineSequence().forEach { rawLine ->
-            val line = rawLine.trim()
+            // Strip leading bold/heading markers so "**Q:" "#Q:" and plain "Q:" all match.
+            val line = rawLine.trim().trimStart('*', '#', ' ')
             when {
                 line.startsWith("Q:") -> {
                     flush()
