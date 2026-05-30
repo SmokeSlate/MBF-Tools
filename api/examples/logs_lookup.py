@@ -121,13 +121,13 @@ async def _main():
             reply(
                 f"Could not fetch the full message view for `{code}`.\n\n"
                 f"{summary_body}\n\n"
-                f"Viewer: https://logs.sm0ke.org/{code}\n"
+                f"Viewer: https://logs.mbf.tools/{code}\n"
                 f"🔍 AI Diagnosis: {DIAGNOSE_URL}{code}"
             )
         else:
             reply(
                 f"Could not find shared logs for `{code}`.\n\n"
-                f"Viewer: https://logs.sm0ke.org/{code}\n"
+                f"Viewer: https://logs.mbf.tools/{code}\n"
                 f"🔍 AI Diagnosis: {DIAGNOSE_URL}{code}"
             )
         react(FAILURE_EMOJI)

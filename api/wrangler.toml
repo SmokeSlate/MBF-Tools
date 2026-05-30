@@ -10,6 +10,15 @@ id = "99d2d10849dc4644beeaffe5ffad70c3"
 # Set OPENROUTER_API_KEY as a Worker secret:  wrangler secret put OPENROUTER_API_KEY
 # Get a free key at https://openrouter.ai/keys
 
+# Custom domains — both must be proxied (orange-cloud) through Cloudflare DNS
+[[routes]]
+pattern = "logs.mbf.tools"
+custom_domain = true
+
+[[routes]]
+pattern = "logs.sm0ke.org"
+custom_domain = true
+
 [observability]
 enabled = false
 head_sampling_rate = 1

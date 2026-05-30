@@ -43,10 +43,10 @@ Legacy query URLs still supported:
 
 Canonical public routes:
 
-- viewer: `https://logs.sm0ke.org/abc12`
-- summary: `https://logs.sm0ke.org/summary/abc12`
-- message: `https://logs.sm0ke.org/message/abc12`
-- data: `https://logs.sm0ke.org/data/abc12`
+- viewer: `https://logs.mbf.tools/abc12`
+- summary: `https://logs.mbf.tools/summary/abc12`
+- message: `https://logs.mbf.tools/message/abc12`
+- data: `https://logs.mbf.tools/data/abc12`
 
 ## Endpoint contract
 
@@ -67,10 +67,10 @@ Response:
   "code": "abc12",
   "command": "!s abc12",
   "summary": "Wireless Debugging is turned off. No authorized ADB headset connection is active.",
-  "viewerUrl": "https://logs.sm0ke.org/abc12",
-  "summaryUrl": "https://logs.sm0ke.org/summary/abc12",
-  "messageUrl": "https://logs.sm0ke.org/message/abc12",
-  "dataUrl": "https://logs.sm0ke.org/data/abc12"
+  "viewerUrl": "https://logs.mbf.tools/abc12",
+  "summaryUrl": "https://logs.mbf.tools/summary/abc12",
+  "messageUrl": "https://logs.mbf.tools/message/abc12",
+  "dataUrl": "https://logs.mbf.tools/data/abc12"
 }
 ```
 
@@ -130,8 +130,8 @@ Wireless Debugging: Off
 Beat Saber: com.beatgames.beatsaber 1.40.0
 Mods (3): SongCore, BS Utils, Qosmetics
 Logs: 1 error(s), 4 warning(s), 137 line(s)
-Viewer: https://logs.sm0ke.org/abc12
-Summary API: https://logs.sm0ke.org/summary/abc12
+Viewer: https://logs.mbf.tools/abc12
+Summary API: https://logs.mbf.tools/summary/abc12
 ```
 
 This is the endpoint your bot bridge should fetch and relay into chat.
@@ -139,7 +139,7 @@ This is the endpoint your bot bridge should fetch and relay into chat.
 Public route form:
 
 ```text
-GET https://logs.sm0ke.org/message/abc12
+GET https://logs.mbf.tools/message/abc12
 ```
 
 Direct GAS form:
@@ -153,7 +153,7 @@ GET https://script.google.com/macros/s/AKfycbyS2gK65EMJxFi5_yzOZtBNpXRF-AOqfVIeo
 Method:
 
 ```text
-GET https://logs.sm0ke.org/abc12
+GET https://logs.mbf.tools/abc12
 ```
 
 Response type:
@@ -198,7 +198,7 @@ Use this when you want your own tooling to inspect the full stored bundle.
 Public route form:
 
 ```text
-GET https://logs.sm0ke.org/data/abc12
+GET https://logs.mbf.tools/data/abc12
 ```
 
 Direct GAS form:
@@ -438,10 +438,10 @@ async def _main():
             reply(
                 f"Could not fetch the full message view for `{code}`.\\n\\n"
                 f"{summary_body}\\n\\n"
-                f"Viewer: https://logs.sm0ke.org/{code}"
+                f"Viewer: https://logs.mbf.tools/{code}"
             )
         else:
-            reply(f"Could not find shared logs for `{code}`.\\n\\nViewer: https://logs.sm0ke.org/{code}")
+            reply(f"Could not find shared logs for `{code}`.\\n\\nViewer: https://logs.mbf.tools/{code}")
         react(FAILURE_EMOJI)
     finally:
         remove_reaction(LOOKUP_EMOJI)

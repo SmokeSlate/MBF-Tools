@@ -2,7 +2,8 @@ const COMMAND_PREFIX = '!s';
 const CODE_TTL = 60 * 60 * 24 * 30; // 30 days
 const ADMIN_HASH = 'e447973503108005e9143ebec44e5f4e2e025c04253ce80c4b113537fccff97d';
 const ADMIN_COOKIE = 'mbf_admin';
-const PUBLIC_BASE_URL = 'https://logs.sm0ke.org';
+const PUBLIC_BASE_URL = 'https://logs.mbf.tools';
+const LEGACY_HOST = 'logs.sm0ke.org';
 const OPENROUTER_API = 'https://openrouter.ai/api/v1/chat/completions';
 const DIAG_MODEL = 'openrouter/free';
 const DIAG_MAX_TOKENS = 1200;
@@ -11,6 +12,19 @@ const DIAG_MAX_ITERATIONS = 4;
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    // Permanent redirect: logs.sm0ke.org → logs.mbf.tools
+    if (url.hostname === LEGACY_HOST) {
+      url.hostname = 'logs.mbf.tools';
+      return new Response(null, {
+        status: 301,
+        headers: {
+          Location: url.toString(),
+          'Cache-Control': 'max-age=86400',
+        },
+      });
+    }
+
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -929,7 +943,7 @@ function renderAdminPage_(rows) {
   <script>
   var ALL = ${rowsJson};
   var PAGE_SIZE = 25;
-  var PUB = 'https://logs.sm0ke.org';
+  var PUB = 'https://logs.mbf.tools';
   var state = { q: '', sortKey: 'createdAt', sortDir: -1, page: 0, selected: {} };
   var expandCache = {};
   var expandOpen = null;
