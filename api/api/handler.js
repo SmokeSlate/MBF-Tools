@@ -469,17 +469,13 @@ async function runFollowupChat(env, record, question, history) {
   const modItems = Array.isArray(mods.items) ? mods.items : [];
 
   const systemPrompt = [
-    'You are a Beat Saber modding support assistant. The user is asking follow-up questions about their MBF Tools diagnostic report.',
-    'Answer based on the diagnostic context and your knowledge of Beat Saber modding on Meta Quest.',
-    'Be concise and specific. Only answer modding/Beat Saber/Quest/MBF-related questions.',
+    'You are a Beat Saber modding support assistant helping a user understand their MBF Tools diagnostic report.',
+    'Answer questions about Beat Saber, Meta Quest, MBF Tools, wireless ADB, and the diagnostic data below.',
+    'Be concise and specific. If a question is clearly unrelated to Beat Saber or modding, reply: "I can only help with Beat Saber and MBF Tools questions."',
     '',
-    '⚠ ABUSE POLICY: If the user asks anything not related to Beat Saber, Meta Quest, MBF Tools,',
-    'or their diagnostic data, respond with ONLY the exact text: __ABUSE_DETECTED__',
-    'Do not answer off-topic questions under any circumstances.',
-    '',
-    `Diagnostic context: BS ${beatSaber.versionName || 'unknown version'}, ` +
-    `${mods.count || 0} mods installed (${modItems.slice(0, 8).join(', ')}${modItems.length > 8 ? '…' : ''}), ` +
-    `issues: ${(record.issues || []).join('; ') || 'none detected'}.`,
+    `Diagnostic context: BS ${beatSaber.versionName || 'unknown'}, ` +
+    `${mods.count || 0} mods (${modItems.slice(0, 8).join(', ')}${modItems.length > 8 ? '…' : ''}), ` +
+    `issues: ${(record.issues || []).join('; ') || 'none'}.`,
   ].join('\n');
 
   const messages = [
@@ -510,12 +506,32 @@ async function runFollowupChat(env, record, question, history) {
   }
 
   const data = await res.json();
-  const content = (data.choices?.[0]?.message?.content || '').trim();
+  // Some models return null content — treat it as a soft failure, not a hard error
+  const raw = data.choices?.[0]?.message?.content;
+  const content = typeof raw === 'string' ? raw.trim() : '';
 
-  if (!content) throw new Error('Empty response from AI.');
-  if (content === '__ABUSE_DETECTED__') return { isAbuse: true, answer: null };
+  if (!content) {
+    return { isAbuse: false, answer: "Sorry, I wasn't able to generate a response. Please rephrase your question and try again." };
+  }
+
+  // Detect deliberate off-topic abuse via server-side pattern check on the question.
+  // We no longer rely on an AI sentinel (which confuses free models).
+  if (isOffTopicAbuse(question)) {
+    return { isAbuse: true, answer: null };
+  }
 
   return { isAbuse: false, answer: content };
+}
+
+function isOffTopicAbuse(question) {
+  const q = question.toLowerCase();
+  // If the question mentions any on-topic terms it's fine
+  const onTopic = ['beat saber', 'beatsaber', 'mbf', 'quest', 'mod', 'adb',
+    'wireless', 'crash', 'saber', 'song', 'map', 'log', 'error', 'version',
+    'install', 'debug', 'pairing', 'developer', 'patch'];
+  if (onTopic.some(t => q.includes(t))) return false;
+  // Flag clearly off-topic patterns that have no modding context
+  return /write (a |an )?(story|poem|essay|email|letter)|act as |pretend (to be|you are)|ignore (your |all |previous )|jailbreak|bypass (your|the) (rules|filter)/i.test(q);
 }
 
 // ─── Rate limiting & IP banning ───────────────────────────────────────────────
