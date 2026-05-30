@@ -663,7 +663,8 @@ function renderAdminLogin_(error = '') {
 }
 
 function renderAdminPage_(rows) {
-  const rowsJson = JSON.stringify(rows);
+  // Escape </ so the browser HTML parser never sees </script> inside the inline JSON block.
+  const rowsJson = JSON.stringify(rows).replace(/<\//g, '<\\/');
 
   return `<!doctype html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
   <meta name="theme-color" content="#99d9ea"/><title>Admin — MBF Tools</title>
