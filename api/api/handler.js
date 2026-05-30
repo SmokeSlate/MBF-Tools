@@ -979,14 +979,14 @@ function renderAdminPage_(rows) {
         if (isExpanded) tr.className = 'expanded-parent';
         tr.innerHTML =
           '<td class="cb-cell"><input type="checkbox"' + (isSel?' checked':'') +
-            ' onclick="onCbClick(event,\'' + esc(r.code) + '\')" /></td>' +
+            ' data-code="' + esc(r.code) + '" onclick="onCbClick(event,this.dataset.code)" /></td>' +
           '<td><code style="font-family:Consolas,monospace;background:#111;padding:2px 6px;border-radius:5px;">' + esc(r.code) + '</code></td>' +
           '<td style="color:#aaa;white-space:nowrap;">' + esc(dateStr) + '</td>' +
           '<td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#cde;">' + esc(r.summary||'—') + '</td>' +
           '<td><div style="display:flex;gap:5px;">' +
             '<a href="' + PUB + '/' + encodeURIComponent(r.code) + '" target="_blank" onclick="event.stopPropagation()">' +
               '<button class="btn btn-sm" type="button">View</button></a>' +
-            '<button class="btn btn-sm btn-danger" type="button" onclick="deleteSingle(event,\'' + esc(r.code) + '\')">Del</button>' +
+            '<button class="btn btn-sm btn-danger" type="button" data-code="' + esc(r.code) + '" onclick="deleteSingle(event,this.dataset.code)">Del</button>' +
           '</div></td>';
         tr.addEventListener('click', function(e) {
           if (e.target.tagName==='INPUT'||e.target.tagName==='BUTTON'||e.target.tagName==='A') return;
