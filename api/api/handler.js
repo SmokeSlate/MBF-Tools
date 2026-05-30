@@ -28,6 +28,11 @@ export default {
     }
 
     if (request.method === 'POST') {
+      // POST /followup/<code>  — follow-up chat on an existing diagnosis
+      const postSegments = path.split('/').filter(Boolean);
+      if (postSegments[0] === 'followup' && postSegments[1]) {
+        return handleFollowup(request, env, normalizeCode_(postSegments[1]), corsHeaders);
+      }
       return handleUpload(request, env, url, corsHeaders);
     }
 
@@ -265,11 +270,11 @@ async function runDiagnosisAgent(env, record) {
     'You are an expert support assistant for Beat Saber modding on Meta Quest headsets.',
     '',
     'KEY FACTS:',
-    '- Modding needs Developer Mode (tap Build Number 7×) + Wireless Debugging ON in Developer Options.',
+    '- Modding needs Developer Mode (tap Build Number 7×) + Wireless Debugging ON in Developer Options. If it asks for a code, tell them to tempararaly remove it and add it back later.',
     '- MBF Tools (org.sm0ke.mbftools) connects via wireless ADB; Wireless Debugging must stay ON after setup.',
     '- MBF Launcher downgrades Beat Saber to a moddable version (1.37 or 1.40.8) then installs mods.',
     '- Beat Saber auto-updates wipe all mods — just re-mod after an update.',
-    '- First launch after modding often crashes 1-3× before stabilising — this is normal.',
+    '- First launch after modding often crashes 1-3× before stabilising — this is normal, if it continues, investagate further.',
     '- Pairing codes expire in ~60s — request a fresh one if pairing fails.',
     '- "Awaiting patch generation" = patches not ready yet for a new BS version; wait up to 48 hours.',
     '- QBeatSaberPlus/QuestSounds ERROR log lines are usually harmless ChatPlexSDK init noise.',
@@ -278,7 +283,8 @@ async function runDiagnosisAgent(env, record) {
     '- Qosmetics on 1.37 causes crashes — recommend upgrading to 1.40.8.',
     '- Any user still on 1.37 should be recommended to upgrade to 1.40.8 (more stable, better mods, actively updated).',
     '- Vivify is Quest-unavailable (PC only); maps requiring it will not load on Quest.',
-    '- Multiple accounts: Developer Mode can only be enabled from the primary admin account.',
+    '- Multiple accounts: Developer Mode can only be enabled from the primary admin account. If the user has multiple accounts, instruct them to use the main admin account.',
+    '- ADB: The device is running an adb INTO itself, there is NO PC INVOLVED.',
     '',
     'Analyse the diagnostic data below. Give numbered fix steps based ONLY on what the data shows.',
     'Do not invent mods, commands, or issues absent from the data.',
@@ -379,6 +385,169 @@ async function runDiagnosisAgent(env, record) {
   const content = data.choices?.[0]?.message?.content;
   if (!content) throw new Error('Empty response from AI.');
   return content;
+}
+
+// ─── Follow-up chat ───────────────────────────────────────────────────────────
+
+async function handleFollowup(request, env, code, corsHeaders) {
+  if (!env.OPENROUTER_API_KEY) {
+    return jsonResponse({ ok: false, error: 'AI not configured.' }, 503, corsHeaders);
+  }
+  if (!code) {
+    return jsonResponse({ ok: false, error: 'Missing log code.' }, 400, corsHeaders);
+  }
+
+  const ip = request.headers.get('CF-Connecting-IP')
+    || request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim()
+    || 'unknown';
+
+  // Check IP ban first
+  const ban = await getIpBan(env, ip);
+  if (ban) {
+    return jsonResponse({
+      ok: false,
+      error: 'Your IP has been banned from AI chat due to policy violations.',
+      bannedUntil: ban.bannedUntil,
+    }, 403, corsHeaders);
+  }
+
+  // Rate limit: 10 requests per minute per IP
+  const rateResult = await checkAndIncrementRateLimit(env, ip);
+  if (!rateResult.allowed) {
+    return jsonResponse({
+      ok: false,
+      error: 'Rate limit exceeded — maximum 10 questions per minute.',
+      retryAfter: rateResult.retryAfter,
+    }, 429, { ...corsHeaders, 'Retry-After': String(rateResult.retryAfter) });
+  }
+
+  // Load the log record for context
+  const raw = await env.LOGS.get(`log:${code}`);
+  if (!raw) {
+    return jsonResponse({ ok: false, error: `No log found for code ${code}.` }, 404, corsHeaders);
+  }
+
+  let body;
+  try { body = await request.json(); } catch {
+    return jsonResponse({ ok: false, error: 'Invalid JSON body.' }, 400, corsHeaders);
+  }
+
+  const question = String(body.question || '').trim();
+  if (!question) {
+    return jsonResponse({ ok: false, error: 'question is required.' }, 400, corsHeaders);
+  }
+
+  // Accept up to last 10 prior messages for context (5 exchanges)
+  const history = Array.isArray(body.history)
+    ? body.history.slice(-10).filter(m => m && typeof m.role === 'string' && typeof m.content === 'string')
+    : [];
+
+  const record = JSON.parse(raw);
+
+  try {
+    const result = await runFollowupChat(env, record, question, history);
+
+    if (result.isAbuse) {
+      await banIp(env, ip, 'Off-topic usage detected by AI');
+      return jsonResponse({
+        ok: false,
+        error: 'Your question was not related to Beat Saber or your diagnostic data. Your IP has been banned from AI chat for 30 days.',
+        banned: true,
+      }, 403, corsHeaders);
+    }
+
+    return jsonResponse({ ok: true, answer: result.answer }, 200, corsHeaders);
+  } catch (err) {
+    return jsonResponse({ ok: false, error: err?.message || 'Chat failed.' }, 500, corsHeaders);
+  }
+}
+
+async function runFollowupChat(env, record, question, history) {
+  const payload = record.payload || {};
+  const beatSaber = payload.beatSaber || {};
+  const mods = payload.mods || {};
+  const modItems = Array.isArray(mods.items) ? mods.items : [];
+
+  const systemPrompt = [
+    'You are a Beat Saber modding support assistant. The user is asking follow-up questions about their MBF Tools diagnostic report.',
+    'Answer based on the diagnostic context and your knowledge of Beat Saber modding on Meta Quest.',
+    'Be concise and specific. Only answer modding/Beat Saber/Quest/MBF-related questions.',
+    '',
+    '⚠ ABUSE POLICY: If the user asks anything not related to Beat Saber, Meta Quest, MBF Tools,',
+    'or their diagnostic data, respond with ONLY the exact text: __ABUSE_DETECTED__',
+    'Do not answer off-topic questions under any circumstances.',
+    '',
+    `Diagnostic context: BS ${beatSaber.versionName || 'unknown version'}, ` +
+    `${mods.count || 0} mods installed (${modItems.slice(0, 8).join(', ')}${modItems.length > 8 ? '…' : ''}), ` +
+    `issues: ${(record.issues || []).join('; ') || 'none detected'}.`,
+  ].join('\n');
+
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    ...history,
+    { role: 'user', content: question },
+  ];
+
+  const res = await fetch(OPENROUTER_API, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${env.OPENROUTER_API_KEY}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://wiki.sm0ke.org',
+      'X-Title': 'MBF Tools Diagnostics Chat',
+    },
+    body: JSON.stringify({
+      model: DIAG_MODEL,
+      messages,
+      max_tokens: 800,
+    }),
+    signal: AbortSignal.timeout(40000),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`OpenRouter error ${res.status}: ${errText.slice(0, 200)}`);
+  }
+
+  const data = await res.json();
+  const content = (data.choices?.[0]?.message?.content || '').trim();
+
+  if (!content) throw new Error('Empty response from AI.');
+  if (content === '__ABUSE_DETECTED__') return { isAbuse: true, answer: null };
+
+  return { isAbuse: false, answer: content };
+}
+
+// ─── Rate limiting & IP banning ───────────────────────────────────────────────
+
+async function checkAndIncrementRateLimit(env, ip) {
+  const key = `ratelimit:${ip}`;
+  const now = Date.now();
+
+  const stored = await env.LOGS.get(key, { type: 'json' }).catch(() => null);
+  const windowActive = stored && stored.resetAt > now;
+  const count = windowActive ? stored.count : 0;
+  const resetAt = windowActive ? stored.resetAt : now + 60_000;
+
+  if (count >= 10) {
+    return { allowed: false, retryAfter: Math.ceil((resetAt - now) / 1000) };
+  }
+
+  await env.LOGS.put(key, JSON.stringify({ count: count + 1, resetAt }), { expirationTtl: 61 });
+  return { allowed: true, remaining: 9 - count };
+}
+
+async function getIpBan(env, ip) {
+  return env.LOGS.get(`ipban:${ip}`, { type: 'json' }).catch(() => null);
+}
+
+async function banIp(env, ip, reason) {
+  const bannedUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  await env.LOGS.put(
+    `ipban:${ip}`,
+    JSON.stringify({ reason, bannedAt: new Date().toISOString(), bannedUntil }),
+    { expirationTtl: 30 * 24 * 60 * 60 },
+  );
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
