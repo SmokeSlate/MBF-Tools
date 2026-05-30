@@ -663,8 +663,12 @@ function renderAdminLogin_(error = '') {
 }
 
 function renderAdminPage_(rows) {
-  // Escape </ so the browser HTML parser never sees </script> inside the inline JSON block.
-  const rowsJson = JSON.stringify(rows).replace(/<\//g, '<\\/');
+  // Unicode-escape <, >, & so the HTML parser can never misread the inline JSON block
+  // as a closing tag, CDATA boundary, or entity reference, regardless of log content.
+  const rowsJson = JSON.stringify(rows)
+    .replace(/</g, '\\u003C')
+    .replace(/>/g, '\\u003E')
+    .replace(/&/g, '\\u0026');
 
   return `<!doctype html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
   <meta name="theme-color" content="#99d9ea"/><title>Admin — MBF Tools</title>
