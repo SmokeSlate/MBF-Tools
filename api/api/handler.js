@@ -14,6 +14,9 @@ export default {
     const url = new URL(request.url);
 
     // Permanent redirect: logs.sm0ke.org → logs.mbf.tools
+    // CORS headers are required here too — a preflight OPTIONS to the old
+    // domain would otherwise get an opaque redirect and the browser would
+    // report a CORS failure before even reaching the real endpoint.
     if (url.hostname === LEGACY_HOST) {
       url.hostname = 'logs.mbf.tools';
       return new Response(null, {
@@ -21,6 +24,9 @@ export default {
         headers: {
           Location: url.toString(),
           'Cache-Control': 'max-age=86400',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
         },
       });
     }
