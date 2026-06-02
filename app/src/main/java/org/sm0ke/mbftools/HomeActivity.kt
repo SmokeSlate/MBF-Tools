@@ -45,6 +45,8 @@ class HomeActivity : ComponentActivity() {
     private lateinit var diagnoseButton: Button
     private lateinit var updateStatus: TextView
     private lateinit var checkUpdatesButton: Button
+    private lateinit var supportChatButton: Button
+    private lateinit var discordButton: Button
 
     @Volatile private var connectedDeviceName: String? = null
     @Volatile private var autoReconnectAttempted = false
@@ -71,6 +73,8 @@ class HomeActivity : ComponentActivity() {
         diagnoseButton = findViewById(R.id.btnHomeDiagnose)
         updateStatus = findViewById(R.id.txtUpdateStatus)
         checkUpdatesButton = findViewById(R.id.btnHomeCheckUpdates)
+        supportChatButton = findViewById(R.id.btnHomeSupportChat)
+        discordButton = findViewById(R.id.btnHomeDiscord)
 
         launchMbfButton.setOnClickListener { launchIntegratedMbf() }
         openFixButton.setOnClickListener { openUrl(FIX_FORM_URL) }
@@ -92,6 +96,8 @@ class HomeActivity : ComponentActivity() {
             startActivity(Intent(this, DiagnoseActivity::class.java))
         }
         checkUpdatesButton.setOnClickListener { checkForUpdates(showNoUpdateToast = true) }
+        supportChatButton.setOnClickListener { openUrl(getString(R.string.support_chat_url)) }
+        discordButton.setOnClickListener { openUrl(getString(R.string.support_discord_url)) }
 
         loadFaq()
         checkForUpdates(showNoUpdateToast = false)
@@ -590,6 +596,8 @@ class HomeActivity : ComponentActivity() {
         shareDebugLogsButton.isEnabled = enabled
         diagnoseButton.isEnabled = enabled
         checkUpdatesButton.isEnabled = enabled && !updateCheckInProgress
+        supportChatButton.isEnabled = enabled
+        discordButton.isEnabled = enabled
     }
 
     companion object {

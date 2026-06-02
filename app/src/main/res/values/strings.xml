@@ -196,6 +196,14 @@
     <string name="share_logs_message">Logs exported, use command !s %1$s or go to https://logs.sm0ke.org/%1$s.\n\nContact Support:\nDiscord (recommended): https://d.sm0ke.org/\nSupport Chat: https://wiki.sm0ke.org/support</string>
     <string name="share_logs_error_message">The log share request failed.\n\n%1$s</string>
 
+    <!-- Support chat -->
+    <string name="support_chat_url">https://wiki.sm0ke.org/support</string>
+    <string name="support_discord_url">https://d.sm0ke.org/</string>
+    <string name="home_section_support_title">Need help?</string>
+    <string name="home_section_support_body">Chat with support staff or browse the Discord community for answers.</string>
+    <string name="home_action_support_chat">Open Support Chat</string>
+    <string name="home_action_discord">Join Discord</string>
+
     <!-- Diagnose screen -->
     <string name="diag_screen_title">Diagnostics</string>
     <string name="diag_screen_subtitle">Quick status checks and shortcuts to fix the most common setup problems.</string>
