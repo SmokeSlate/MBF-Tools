@@ -570,6 +570,12 @@ class MainActivity : ComponentActivity() {
             }
 
             runCatching { AdbManager.grantSelfPermissions(this, device) }
+            val beatSaberVersionTag =
+                    BeatSaberVersionResolver.resolveVersionTag(
+                            context = this,
+                            packageName = AppPrefs.getGameId(this),
+                            deviceName = device
+                    )
 
             val browserUrl = runCatching {
                 val baseUrl =
@@ -584,6 +590,14 @@ class MainActivity : ComponentActivity() {
                             appendLog("MBF bridge ready. Opening in-app browser.")
                             updateLogView()
                             val intent = Intent(this, BrowserActivity::class.java)
+                            intent.putExtra(
+                                    BrowserActivity.EXTRA_ENABLE_RECOMMENDED_MOD_PACK_PROMPT,
+                                    true
+                            )
+                            intent.putExtra(
+                                    BrowserActivity.EXTRA_BEAT_SABER_VERSION_TAG,
+                                    beatSaberVersionTag
+                            )
                             intent.putExtra(BrowserActivity.EXTRA_URL, url)
                             startActivity(intent)
                         }

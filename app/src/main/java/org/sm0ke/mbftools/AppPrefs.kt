@@ -9,6 +9,7 @@ object AppPrefs {
     private const val KEY_GAME_ID = "game_id"
     private const val KEY_SETUP_COMPLETE = "setup_complete"
     private const val KEY_CURRENT_GUIDE_STEP = "current_guide_step"
+    private const val KEY_RECOMMENDED_PACK_PROMPTED_VERSIONS = "recommended_pack_prompted_versions"
 
     private fun prefs(context: Context) =
             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -55,6 +56,25 @@ object AppPrefs {
 
     fun clearCurrentGuideStep(context: Context) {
         prefs(context).edit().remove(KEY_CURRENT_GUIDE_STEP).apply()
+    }
+
+    fun hasPromptedRecommendedPackVersion(context: Context, versionTag: String): Boolean {
+        return prefs(context)
+                .getStringSet(KEY_RECOMMENDED_PACK_PROMPTED_VERSIONS, emptySet())
+                ?.contains(versionTag) == true
+    }
+
+    fun markRecommendedPackVersionPrompted(context: Context, versionTag: String) {
+        val current =
+                prefs(context)
+                        .getStringSet(KEY_RECOMMENDED_PACK_PROMPTED_VERSIONS, emptySet())
+                        ?.toMutableSet()
+                        ?: mutableSetOf()
+        current.add(versionTag)
+        prefs(context)
+                .edit()
+                .putStringSet(KEY_RECOMMENDED_PACK_PROMPTED_VERSIONS, current)
+                .apply()
     }
 
     fun reset(context: Context) {

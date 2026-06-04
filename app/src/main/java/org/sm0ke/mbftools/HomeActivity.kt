@@ -515,6 +515,12 @@ class HomeActivity : ComponentActivity() {
         AppLog.info("Home", "Launching MBF from the home screen.")
         worker.execute {
             runCatching { AdbManager.grantSelfPermissions(this, device) }
+            val beatSaberVersionTag =
+                    BeatSaberVersionResolver.resolveVersionTag(
+                            context = this,
+                            packageName = AppPrefs.getGameId(this),
+                            deviceName = device
+                    )
             val browserUrl = runCatching {
                 val baseUrl = BridgeManager.startOrGetBrowserUrl(this, MBF_APP_URL)
                 buildBrowserUrl(baseUrl)
@@ -526,6 +532,14 @@ class HomeActivity : ComponentActivity() {
                             AppLog.info("Home", "MBF browser launched successfully.")
                             startActivity(
                                     Intent(this, BrowserActivity::class.java)
+                                            .putExtra(
+                                                    BrowserActivity.EXTRA_ENABLE_RECOMMENDED_MOD_PACK_PROMPT,
+                                                    true
+                                            )
+                                            .putExtra(
+                                                    BrowserActivity.EXTRA_BEAT_SABER_VERSION_TAG,
+                                                    beatSaberVersionTag
+                                            )
                                             .putExtra(BrowserActivity.EXTRA_URL, url)
                             )
                         }

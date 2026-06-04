@@ -634,6 +634,12 @@ class GuideActivity : ComponentActivity() {
         setBusy(true)
         worker.execute {
             runCatching { AdbManager.grantSelfPermissions(this, device) }
+            val beatSaberVersionTag =
+                    BeatSaberVersionResolver.resolveVersionTag(
+                            context = this,
+                            packageName = AppPrefs.getGameId(this),
+                            deviceName = device
+                    )
             val browserUrl = runCatching {
                 val baseUrl = BridgeManager.startOrGetBrowserUrl(this, MBF_APP_URL)
                 buildBrowserUrl(baseUrl)
@@ -646,6 +652,18 @@ class GuideActivity : ComponentActivity() {
                             AppLog.info("Guide", "MBF browser launched successfully.")
                             startActivity(
                                     Intent(this, BrowserActivity::class.java)
+                                            .putExtra(
+                                                    BrowserActivity.EXTRA_CLOSE_TO_HOME_ON_EXIT,
+                                                    true
+                                            )
+                                            .putExtra(
+                                                    BrowserActivity.EXTRA_ENABLE_RECOMMENDED_MOD_PACK_PROMPT,
+                                                    true
+                                            )
+                                            .putExtra(
+                                                    BrowserActivity.EXTRA_BEAT_SABER_VERSION_TAG,
+                                                    beatSaberVersionTag
+                                            )
                                             .putExtra(BrowserActivity.EXTRA_URL, url)
                             )
                         }
