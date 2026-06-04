@@ -12,6 +12,7 @@ import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.view.isVisible
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import org.json.JSONArray
@@ -19,11 +20,15 @@ import org.json.JSONArray
 class BrowserActivity : ComponentActivity() {
     private lateinit var webView: WebView
     private lateinit var backButton: Button
+    private lateinit var recommendedPackButton: Button
     private lateinit var titleView: TextView
     private var recommendedPack: RecommendedModPack? = null
+    private var beatSaberVersionTag: String? = null
     private var hasInjectedRecommendedPackObserver = false
     private var hasHandledRecommendedPackPrompt = false
     private var closeToHomeOnExit = false
+    private var recommendedPackUiEnabled = false
+    private var shouldAutoPromptRecommendedPack = false
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,14 +38,22 @@ class BrowserActivity : ComponentActivity() {
 
         webView = findViewById(R.id.webBrowser)
         backButton = findViewById(R.id.btnBrowserBack)
+        recommendedPackButton = findViewById(R.id.btnBrowserRecommendedPack)
         titleView = findViewById(R.id.txtBrowserTitle)
         closeToHomeOnExit = intent.getBooleanExtra(EXTRA_CLOSE_TO_HOME_ON_EXIT, false)
+        beatSaberVersionTag = intent.getStringExtra(EXTRA_BEAT_SABER_VERSION_TAG)
+        recommendedPackUiEnabled =
+                intent.getBooleanExtra(EXTRA_ENABLE_RECOMMENDED_MOD_PACK_PROMPT, false)
         recommendedPack =
-                intent.getStringExtra(EXTRA_BEAT_SABER_VERSION_TAG)
-                        ?.let { versionTag -> RecommendedModPacks.forVersion(versionTag) }
-                        ?.takeUnless {
-                            AppPrefs.hasPromptedRecommendedPack(this, it.fingerprint)
-                        }
+                beatSaberVersionTag?.let { versionTag ->
+                    RecommendedModPacks.forVersion(versionTag)
+                }
+        val alreadyPrompted =
+                recommendedPack?.let { AppPrefs.hasPromptedRecommendedPack(this, it.fingerprint) }
+                        ?: false
+        shouldAutoPromptRecommendedPack =
+                recommendedPackUiEnabled && recommendedPack != null && !alreadyPrompted
+        logRecommendedPackSetup(alreadyPrompted)
 
         webView.settings.apply {
             javaScriptEnabled = true
@@ -54,8 +67,9 @@ class BrowserActivity : ComponentActivity() {
             setSupportZoom(false)
             userAgentString = "MbfLauncher/1.0"
         }
-        if (intent.getBooleanExtra(EXTRA_ENABLE_RECOMMENDED_MOD_PACK_PROMPT, false)) {
+        if (recommendedPackUiEnabled || recommendedPack != null) {
             webView.addJavascriptInterface(RecommendedPackBridge(), JS_BRIDGE_NAME)
+            AppLog.info("Browser", "Registered MBF recommended-pack JavaScript bridge.")
         }
 
         webView.webChromeClient =
@@ -70,12 +84,19 @@ class BrowserActivity : ComponentActivity() {
                 object : WebViewClient() {
                     override fun onPageFinished(view: WebView?, url: String?) {
                         super.onPageFinished(view, url)
+                        AppLog.info(
+                                "Browser",
+                                "Page finished loading: ${url ?: "<unknown>"}"
+                        )
                         syncBackButton()
+                        syncRecommendedPackButton()
                         injectRecommendedPackObserverIfNeeded()
                     }
                 }
 
         backButton.setOnClickListener { handleBackPress() }
+        recommendedPackButton.setOnClickListener { openRecommendedPackFromToolbar() }
+        syncRecommendedPackButton()
 
         onBackPressedDispatcher.addCallback(
                 this,
@@ -108,6 +129,10 @@ class BrowserActivity : ComponentActivity() {
     }
 
     private fun closeBrowser() {
+        AppLog.info(
+                "Browser",
+                "Closing browser. closeToHomeOnExit=$closeToHomeOnExit currentUrl=${webView.url ?: "<unknown>"}"
+        )
         if (closeToHomeOnExit) {
             startActivity(
                     Intent(this, HomeActivity::class.java).apply {
@@ -125,21 +150,88 @@ class BrowserActivity : ComponentActivity() {
                 )
     }
 
+    private fun syncRecommendedPackButton() {
+        recommendedPackButton.isVisible = recommendedPackUiEnabled
+    }
+
+    private fun logRecommendedPackSetup(alreadyPrompted: Boolean) {
+        val pack = recommendedPack
+        if (!recommendedPackUiEnabled) {
+            AppLog.info("Browser", "Recommended-pack UI is disabled for this browser session.")
+            return
+        }
+        if (pack == null) {
+            AppLog.warn(
+                    "Browser",
+                    "Recommended-pack UI enabled, but no pack is mapped for versionTag=${beatSaberVersionTag ?: "<none>"}. Supported versions=${RecommendedModPacks.supportedVersionTags().sorted().joinToString()}"
+            )
+            return
+        }
+        AppLog.info(
+                "Browser",
+                "Recommended-pack setup: versionTag=${pack.versionTag}, title=${pack.title}, modCount=${pack.mods.size}, fingerprint=${pack.fingerprint}, alreadyPrompted=$alreadyPrompted, autoPrompt=$shouldAutoPromptRecommendedPack"
+        )
+    }
+
     private fun injectRecommendedPackObserverIfNeeded() {
-        if (hasInjectedRecommendedPackObserver || recommendedPack == null) {
+        if (hasInjectedRecommendedPackObserver) {
+            AppLog.info("Browser", "Recommended-pack observer already injected for this page.")
+            return
+        }
+        if (!shouldAutoPromptRecommendedPack) {
+            AppLog.info(
+                    "Browser",
+                    "Skipping recommended-pack observer injection. autoPrompt=$shouldAutoPromptRecommendedPack versionTag=${beatSaberVersionTag ?: "<none>"}"
+            )
+            return
+        }
+        if (recommendedPack == null) {
+            AppLog.warn(
+                    "Browser",
+                    "Skipping recommended-pack observer injection because no pack was resolved for versionTag=${beatSaberVersionTag ?: "<none>"}"
+            )
             return
         }
         hasInjectedRecommendedPackObserver = true
+        AppLog.info(
+                "Browser",
+                "Injecting recommended-pack observer for versionTag=${recommendedPack?.versionTag}"
+        )
         webView.evaluateJavascript(RECOMMENDED_PACK_OBSERVER_SCRIPT, null)
     }
 
-    private fun maybeShowRecommendedPackPrompt() {
-        val pack = recommendedPack ?: return
+    private fun maybeShowRecommendedPackPrompt(trigger: String) {
+        val pack = recommendedPack
+        if (pack == null) {
+            AppLog.warn(
+                    "Browser",
+                    "Recommended-pack prompt skipped ($trigger) because no pack is mapped for versionTag=${beatSaberVersionTag ?: "<none>"}"
+            )
+            return
+        }
+        if (!shouldAutoPromptRecommendedPack) {
+            AppLog.info(
+                    "Browser",
+                    "Recommended-pack prompt skipped ($trigger). autoPrompt=$shouldAutoPromptRecommendedPack fingerprint=${pack.fingerprint}"
+            )
+            return
+        }
         if (hasHandledRecommendedPackPrompt) {
+            AppLog.info(
+                    "Browser",
+                    "Recommended-pack prompt already handled for fingerprint=${pack.fingerprint}; trigger=$trigger"
+            )
             return
         }
         hasHandledRecommendedPackPrompt = true
+        showRecommendedPackPrompt(pack, "automatic/$trigger")
+    }
 
+    private fun showRecommendedPackPrompt(pack: RecommendedModPack, source: String) {
+        AppLog.info(
+                "Browser",
+                "Showing recommended-pack dialog from $source for versionTag=${pack.versionTag} with ${pack.mods.size} mods."
+        )
         val message =
                 getString(
                         R.string.recommended_pack_prompt_body,
@@ -151,16 +243,47 @@ class BrowserActivity : ComponentActivity() {
                 .setTitle(getString(R.string.recommended_pack_prompt_title))
                 .setMessage(message)
                 .setNegativeButton(R.string.recommended_pack_prompt_skip) { _, _ ->
+                    AppLog.info(
+                            "Browser",
+                            "User skipped recommended-pack install from $source for fingerprint=${pack.fingerprint}"
+                    )
                     AppPrefs.markRecommendedPackPrompted(this, pack.fingerprint)
                 }
                 .setPositiveButton(R.string.recommended_pack_prompt_install) { _, _ ->
+                    AppLog.info(
+                            "Browser",
+                            "User accepted recommended-pack install from $source for fingerprint=${pack.fingerprint}"
+                    )
                     AppPrefs.markRecommendedPackPrompted(this, pack.fingerprint)
                     installRecommendedPack(pack)
                 }
                 .show()
     }
 
+    private fun openRecommendedPackFromToolbar() {
+        val pack = recommendedPack
+        if (pack == null) {
+            AppLog.warn(
+                    "Browser",
+                    "Toolbar recommended-pack button pressed, but no pack is mapped for versionTag=${beatSaberVersionTag ?: "<none>"}"
+            )
+            Toast.makeText(this, R.string.recommended_pack_unavailable, Toast.LENGTH_LONG).show()
+            return
+        }
+        AppLog.info(
+                "Browser",
+                "Toolbar recommended-pack button pressed for versionTag=${pack.versionTag} fingerprint=${pack.fingerprint}"
+        )
+        hasHandledRecommendedPackPrompt = true
+        shouldAutoPromptRecommendedPack = false
+        showRecommendedPackPrompt(pack, "toolbar")
+    }
+
     private fun installRecommendedPack(pack: RecommendedModPack) {
+        AppLog.info(
+                "Browser",
+                "Starting recommended-pack install for fingerprint=${pack.fingerprint} modCount=${pack.mods.size}"
+        )
         val modsJson =
                 JSONArray().apply {
                     pack.mods.forEach { mod ->
@@ -174,11 +297,20 @@ class BrowserActivity : ComponentActivity() {
         val script =
                 """
                 (function(mods) {
+                    const bridge = window.$JS_BRIDGE_NAME;
+                    const log = (message) => {
+                        try {
+                            if (bridge && typeof bridge.logRecommendedPack === 'function') {
+                                bridge.logRecommendedPack(message);
+                            }
+                        } catch (_) {}
+                    };
                     const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
                     const normalize = (value) => String(value || '')
                         .toLowerCase()
                         .replace(/[^a-z0-9]+/g, ' ')
                         .trim();
+                    log('Install script started for ' + mods.length + ' recommended mods.');
                     async function install(mod) {
                         for (let attempt = 0; attempt < 40; attempt++) {
                             const cards = Array.from(document.querySelectorAll('.modRepoCard'));
@@ -195,17 +327,23 @@ class BrowserActivity : ComponentActivity() {
                             const button = card.querySelector('button.installMod');
                             if (button) {
                                 button.click();
+                                log('Queued mod install for ' + mod.name + ' on attempt ' + (attempt + 1) + '.');
                                 await wait(250);
                                 return true;
                             }
                             await wait(500);
                         }
+                        log('Could not queue mod install for ' + mod.name + ' after 40 attempts.');
                         return false;
                     }
                     (async function() {
+                        let successCount = 0;
                         for (const mod of mods) {
-                            await install(mod);
+                            if (await install(mod)) {
+                                successCount += 1;
+                            }
                         }
+                        log('Install script finished. queued=' + successCount + ' total=' + mods.length + '.');
                     })();
                 })($modsJson);
                 """
@@ -217,10 +355,19 @@ class BrowserActivity : ComponentActivity() {
     private inner class RecommendedPackBridge {
         @JavascriptInterface
         fun onMbfState(state: String?) {
+            AppLog.info("Browser", "Received MBF recommended-pack state callback: ${state ?: "<null>"}")
             if (state != RECOMMENDED_PACK_READY_STATE) {
                 return
             }
-            runOnUiThread { maybeShowRecommendedPackPrompt() }
+            runOnUiThread { maybeShowRecommendedPackPrompt("bridge") }
+        }
+
+        @JavascriptInterface
+        fun logRecommendedPack(message: String?) {
+            AppLog.info(
+                    "Browser",
+                    "MBF recommended-pack observer: ${message?.trim().orEmpty().ifBlank { "<blank>" }}"
+            )
         }
     }
 
@@ -244,6 +391,14 @@ class BrowserActivity : ComponentActivity() {
                     if (!bridge || typeof bridge.onMbfState !== 'function') {
                         return;
                     }
+                    const log = (message) => {
+                        try {
+                            if (typeof bridge.logRecommendedPack === 'function') {
+                                bridge.logRecommendedPack(message);
+                            }
+                        } catch (_) {}
+                    };
+                    log('Observer installed for ' + window.location.href);
                     const notify = () => {
                         const text = document.body ? String(document.body.innerText || '') : '';
                         const hasModCards =
@@ -259,7 +414,18 @@ class BrowserActivity : ComponentActivity() {
                             text.includes('App is modded') ||
                             text.includes('Everything should be ready to go!') ||
                             (text.includes('Your Mods') && text.includes('Add Mods'));
+                        const summary =
+                            'url=' + window.location.href +
+                            ' readyText=' + hasReadyText +
+                            ' modCards=' + hasModCards +
+                            ' modTabs=' + hasModTabs +
+                            ' bodyLength=' + text.length;
+                        if (window.__mbfToolsObserverLastSummary !== summary) {
+                            window.__mbfToolsObserverLastSummary = summary;
+                            log(summary);
+                        }
                         if (hasReadyText || hasModCards || hasModTabs) {
+                            log('Ready state detected. Notifying Android.');
                             bridge.onMbfState('$RECOMMENDED_PACK_READY_STATE');
                         }
                     };

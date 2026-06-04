@@ -89,4 +89,6 @@ object RecommendedModPacks {
         }
         return packsByVersion[versionTag]
     }
+
+    fun supportedVersionTags(): Set<String> = packsByVersion.keys
 }

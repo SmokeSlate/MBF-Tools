@@ -58,11 +58,13 @@
     <string name="browser_back">Back</string>
     <string name="browser_close">Close</string>
     <string name="browser_loading">Loading…</string>
+    <string name="browser_recommended_pack">Rec Mods</string>
     <string name="recommended_pack_prompt_title">Install recommended mods?</string>
     <string name="recommended_pack_prompt_body">A recommended mod pack is available for this Beat Saber version.\n\nThis will queue these mods in MBF and let MBF install their required dependencies too:\n%1$s</string>
     <string name="recommended_pack_prompt_install">Install Recommended Mods</string>
     <string name="recommended_pack_prompt_skip">Not Now</string>
     <string name="recommended_pack_install_started">Recommended mods queued in MBF. Required dependencies will install automatically.</string>
+    <string name="recommended_pack_unavailable">No recommended mod pack is mapped for this Beat Saber version yet.</string>
     <string name="action_change_details">Change Details</string>
     <string name="guide_support_title">Need help while setting up?</string>
     <string name="guide_support_body">The live FAQ and fix form stay available during setup.</string>

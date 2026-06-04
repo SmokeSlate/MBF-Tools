@@ -31,8 +31,8 @@ android {
         applicationId 'org.sm0ke.mbftools'
         minSdk 21
         targetSdk 34
-        versionCode 37
-        versionName '3.5.2'
+        versionCode 38
+        versionName '3.5.3'
     }
 
     buildTypes {
