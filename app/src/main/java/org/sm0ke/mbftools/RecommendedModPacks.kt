@@ -18,13 +18,41 @@ object RecommendedModPacks {
                     RecommendedMod(id = "transitions", displayName = "Transitions")
             )
 
+    private val pack1408_7379 =
+            listOf(
+                    RecommendedMod(id = "FakeId", displayName = "Fake ID"),
+                    RecommendedMod(id = "datakeeper", displayName = "PlayerDataKeeper"),
+                    RecommendedMod(id = "playlistcore", displayName = "PlaylistCore"),
+                    RecommendedMod(id = "songcore", displayName = "SongCore"),
+                    RecommendedMod(id = "songdownloader", displayName = "SongDownloader"),
+                    RecommendedMod(id = "unicode", displayName = "Unicode"),
+                    RecommendedMod(id = "BeatLeader", displayName = "BeatLeader"),
+                    RecommendedMod(id = "BetterSongSearch", displayName = "BetterSongSearch"),
+                    RecommendedMod(id = "chroma", displayName = "Chroma"),
+                    RecommendedMod(id = "custommodels", displayName = "Custom Models"),
+                    RecommendedMod(id = "graphicstweaks", displayName = "GraphicsTweaks"),
+                    RecommendedMod(id = "HitScoreVisualizer", displayName = "HitScoreVisualizer"),
+                    RecommendedMod(id = "IntroSkip", displayName = "Intro Skip"),
+                    RecommendedMod(id = "MappingExtensions", displayName = "Mapping Extensions"),
+                    RecommendedMod(id = "NoodleExtensions", displayName = "NoodleExtensions"),
+                    RecommendedMod(id = "NoPromo", displayName = "NoPromo"),
+                    RecommendedMod(id = "playlistdownloader", displayName = "PlaylistDownloader"),
+                    RecommendedMod(id = "playlistmanager", displayName = "PlaylistManager"),
+                    RecommendedMod(
+                            id = "qbeatsaberplus-multiplayer",
+                            displayName = "QBeatSaberPlus-Multiplayer"
+                    ),
+                    RecommendedMod(id = "RecentlyPlayed", displayName = "RecentlyPlayed"),
+                    RecommendedMod(id = "replay", displayName = "Replay")
+            )
+
     private val packsByVersion =
             mapOf(
                     "1.40.8_7379" to
                             RecommendedModPack(
-                                    title = "Recommended Essentials",
+                                    title = "Recommended Mods for 1.40.8_7379",
                                     versionTag = "1.40.8_7379",
-                                    mods = modernPack
+                                    mods = pack1408_7379
                             ),
                     "1.40.7_7060" to
                             RecommendedModPack(

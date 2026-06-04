@@ -26,11 +26,11 @@
                 android:padding="24dp">
 
                 <ImageView
-                    android:layout_width="220dp"
-                    android:layout_height="72dp"
+                    android:layout_width="112dp"
+                    android:layout_height="112dp"
                     android:adjustViewBounds="true"
                     android:contentDescription="@string/app_name"
-                    android:src="@drawable/mbf_tools_long_logo" />
+                    android:src="@drawable/guide_step_intro_logo" />
 
                 <LinearLayout
                     android:layout_width="0dp"
