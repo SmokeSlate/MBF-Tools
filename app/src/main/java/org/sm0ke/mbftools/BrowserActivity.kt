@@ -291,6 +291,12 @@ class BrowserActivity : ComponentActivity() {
                                 org.json.JSONObject()
                                         .put("id", mod.id)
                                         .put("name", mod.displayName)
+                                        .put("aliases", JSONArray().apply {
+                                            put(mod.displayName)
+                                            if (!mod.id.equals(mod.displayName, ignoreCase = true)) {
+                                                put(mod.id)
+                                            }
+                                        })
                         )
                     }
                 }
@@ -310,27 +316,71 @@ class BrowserActivity : ComponentActivity() {
                         .toLowerCase()
                         .replace(/[^a-z0-9]+/g, ' ')
                         .trim();
+                    const labels = (mod) => {
+                        const raw = Array.isArray(mod.aliases) ? mod.aliases : [mod.name, mod.id];
+                        return Array.from(new Set(raw.map(normalize).filter(Boolean)));
+                    };
+                    const findAddModsTab = () => {
+                        return Array.from(document.querySelectorAll('button, a, [role="tab"]'))
+                            .find(node => normalize(node.textContent).includes('add mods'));
+                    };
+                    const clickAddModsTab = async () => {
+                        for (let attempt = 0; attempt < 10; attempt++) {
+                            const tab = findAddModsTab();
+                            if (tab) {
+                                tab.click();
+                                log('Opened Add Mods tab on attempt ' + (attempt + 1) + '.');
+                                await wait(500);
+                                return true;
+                            }
+                            await wait(300);
+                        }
+                        log('Could not find Add Mods tab before starting installs.');
+                        return false;
+                    };
+                    const findInstallButton = (card) => {
+                        const direct = card.querySelector('button.installMod');
+                        if (direct) {
+                            return direct;
+                        }
+                        return Array.from(card.querySelectorAll('button'))
+                            .find(button => {
+                                const label = normalize(button.textContent);
+                                return label.includes('install') || label.includes('update');
+                            }) || null;
+                    };
+                    const cardMatches = (card, mod) => {
+                        const haystack = normalize(card.innerText);
+                        return labels(mod).some(label => haystack.includes(label));
+                    };
                     log('Install script started for ' + mods.length + ' recommended mods.');
+                    await clickAddModsTab();
                     async function install(mod) {
                         for (let attempt = 0; attempt < 40; attempt++) {
+                            if (attempt % 5 === 0) {
+                                await clickAddModsTab();
+                            }
                             const cards = Array.from(document.querySelectorAll('.modRepoCard'));
                             if (cards.length === 0) {
+                                log('No mod cards visible yet for ' + mod.name + ' on attempt ' + (attempt + 1) + '.');
                                 await wait(500);
                                 continue;
                             }
-                            const wanted = normalize(mod.name);
-                            const card = cards.find(node => normalize(node.innerText).includes(wanted));
+                            const card = cards.find(node => cardMatches(node, mod));
                             if (!card) {
+                                log('Could not find card for ' + mod.name + ' on attempt ' + (attempt + 1) + '.');
                                 await wait(500);
                                 continue;
                             }
-                            const button = card.querySelector('button.installMod');
+                            card.scrollIntoView({ block: 'center', inline: 'nearest' });
+                            const button = findInstallButton(card);
                             if (button) {
                                 button.click();
                                 log('Queued mod install for ' + mod.name + ' on attempt ' + (attempt + 1) + '.');
-                                await wait(250);
+                                await wait(400);
                                 return true;
                             }
+                            log('Found card for ' + mod.name + ' but no install button was available on attempt ' + (attempt + 1) + '.');
                             await wait(500);
                         }
                         log('Could not queue mod install for ' + mod.name + ' after 40 attempts.');
