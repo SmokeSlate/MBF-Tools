@@ -280,6 +280,11 @@ class BrowserActivity : ComponentActivity() {
     }
 
     private fun installRecommendedPack(pack: RecommendedModPack) {
+        if (!pack.bundledQmodBase64.isNullOrBlank() && !pack.bundledQmodFileName.isNullOrBlank()) {
+            uploadRecommendedPackBundle(pack)
+            return
+        }
+
         AppLog.info(
                 "Browser",
                 "Starting recommended-pack install for fingerprint=${pack.fingerprint} modCount=${pack.mods.size}"
@@ -396,6 +401,118 @@ class BrowserActivity : ComponentActivity() {
                         log('Install script finished. queued=' + successCount + ' total=' + mods.length + '.');
                     })();
                 })($modsJson);
+                """
+                        .trimIndent()
+        webView.evaluateJavascript(script, null)
+        Toast.makeText(this, R.string.recommended_pack_install_started, Toast.LENGTH_LONG).show()
+    }
+
+    private fun uploadRecommendedPackBundle(pack: RecommendedModPack) {
+        val bundleName = pack.bundledQmodFileName ?: return
+        val bundleBase64 = pack.bundledQmodBase64 ?: return
+        AppLog.info(
+                "Browser",
+                "Starting recommended-pack bundle upload for fingerprint=${pack.fingerprint} file=$bundleName"
+        )
+        val script =
+                """
+                (function(fileName, base64Data) {
+                    const bridge = window.$JS_BRIDGE_NAME;
+                    const log = (message) => {
+                        try {
+                            if (bridge && typeof bridge.logRecommendedPack === 'function') {
+                                bridge.logRecommendedPack(message);
+                            }
+                        } catch (_) {}
+                    };
+                    const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+                    const decodeBase64 = (value) => {
+                        const binary = atob(value);
+                        const bytes = new Uint8Array(binary.length);
+                        for (let i = 0; i < binary.length; i++) {
+                            bytes[i] = binary.charCodeAt(i);
+                        }
+                        return bytes;
+                    };
+                    const buildFile = () => {
+                        const bytes = decodeBase64(base64Data);
+                        log('Constructed bundled qmod bytes=' + bytes.length + ' file=' + fileName + '.');
+                        return new File([bytes], fileName, { type: 'application/octet-stream' });
+                    };
+                    const buildTransfer = (file) => {
+                        const transfer = new DataTransfer();
+                        transfer.items.add(file);
+                        return transfer;
+                    };
+                    const dispatchInputUpload = (input, transfer) => {
+                        input.files = transfer.files;
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                    };
+                    const tryFileInputs = (file) => {
+                        const inputs = Array.from(document.querySelectorAll('input[type=file]'));
+                        log('Found ' + inputs.length + ' file inputs while uploading recommended pack.');
+                        for (const input of inputs) {
+                            try {
+                                const transfer = buildTransfer(file);
+                                dispatchInputUpload(input, transfer);
+                                log('Dispatched bundled qmod through a file input.');
+                                return true;
+                            } catch (error) {
+                                log('File input upload attempt failed: ' + (error && error.message ? error.message : error));
+                            }
+                        }
+                        return false;
+                    };
+                    const dispatchDrop = (target, transfer) => {
+                        const events = ['dragenter', 'dragover', 'drop'];
+                        for (const type of events) {
+                            const event = new DragEvent(type, {
+                                bubbles: true,
+                                cancelable: true,
+                                dataTransfer: transfer
+                            });
+                            target.dispatchEvent(event);
+                        }
+                    };
+                    const tryDropTargets = (file) => {
+                        const transfer = buildTransfer(file);
+                        const targets = Array.from(new Set([
+                            document.querySelector('[class*="drop"]'),
+                            document.querySelector('[class*="upload"]'),
+                            document.querySelector('main'),
+                            document.getElementById('root'),
+                            document.body,
+                            document.documentElement
+                        ].filter(Boolean)));
+                        log('Trying synthetic drop upload across ' + targets.length + ' targets.');
+                        for (const target of targets) {
+                            try {
+                                dispatchDrop(target, transfer);
+                                log('Dispatched bundled qmod drop event to target ' + target.tagName + '.');
+                                return true;
+                            } catch (error) {
+                                log('Drop upload attempt failed on target ' + target.tagName + ': ' + (error && error.message ? error.message : error));
+                            }
+                        }
+                        return false;
+                    };
+                    (async function() {
+                        const file = buildFile();
+                        for (let attempt = 0; attempt < 10; attempt++) {
+                            if (tryFileInputs(file)) {
+                                log('Bundled qmod upload succeeded via file input on attempt ' + (attempt + 1) + '.');
+                                return;
+                            }
+                            if (tryDropTargets(file)) {
+                                log('Bundled qmod upload dispatched via drag/drop on attempt ' + (attempt + 1) + '.');
+                                return;
+                            }
+                            await wait(500);
+                        }
+                        log('Bundled qmod upload could not find a usable MBF upload target.');
+                    })();
+                })(${org.json.JSONObject.quote(bundleName)}, ${org.json.JSONObject.quote(bundleBase64)});
                 """
                         .trimIndent()
         webView.evaluateJavascript(script, null)
