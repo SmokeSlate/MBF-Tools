@@ -6,7 +6,16 @@ data class RecommendedModPack(
         val title: String,
         val versionTag: String,
         val mods: List<RecommendedMod>
-)
+) {
+    val fingerprint: String
+        get() = buildString {
+            append(versionTag)
+            append('|')
+            append(title)
+            append('|')
+            append(mods.joinToString(separator = ",") { it.id })
+        }
+}
 
 object RecommendedModPacks {
     private val modernPack =

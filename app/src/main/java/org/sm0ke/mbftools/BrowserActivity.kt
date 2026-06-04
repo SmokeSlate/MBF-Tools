@@ -39,7 +39,7 @@ class BrowserActivity : ComponentActivity() {
                 intent.getStringExtra(EXTRA_BEAT_SABER_VERSION_TAG)
                         ?.let { versionTag -> RecommendedModPacks.forVersion(versionTag) }
                         ?.takeUnless {
-                            AppPrefs.hasPromptedRecommendedPackVersion(this, it.versionTag)
+                            AppPrefs.hasPromptedRecommendedPack(this, it.fingerprint)
                         }
 
         webView.settings.apply {
@@ -139,7 +139,6 @@ class BrowserActivity : ComponentActivity() {
             return
         }
         hasHandledRecommendedPackPrompt = true
-        AppPrefs.markRecommendedPackVersionPrompted(this, pack.versionTag)
 
         val message =
                 getString(
@@ -151,8 +150,11 @@ class BrowserActivity : ComponentActivity() {
         AlertDialog.Builder(this)
                 .setTitle(getString(R.string.recommended_pack_prompt_title))
                 .setMessage(message)
-                .setNegativeButton(R.string.recommended_pack_prompt_skip, null)
+                .setNegativeButton(R.string.recommended_pack_prompt_skip) { _, _ ->
+                    AppPrefs.markRecommendedPackPrompted(this, pack.fingerprint)
+                }
                 .setPositiveButton(R.string.recommended_pack_prompt_install) { _, _ ->
+                    AppPrefs.markRecommendedPackPrompted(this, pack.fingerprint)
                     installRecommendedPack(pack)
                 }
                 .show()
@@ -244,7 +246,20 @@ class BrowserActivity : ComponentActivity() {
                     }
                     const notify = () => {
                         const text = document.body ? String(document.body.innerText || '') : '';
-                        if (text.includes('App is modded') || text.includes('Everything should be ready to go!')) {
+                        const hasModCards =
+                            document.querySelector('.modRepoCard') !== null ||
+                            document.querySelector('button.installMod') !== null;
+                        const hasModTabs =
+                            Array.from(document.querySelectorAll('button, a, [role="tab"]'))
+                                .some(node => {
+                                    const label = String(node.textContent || '').trim();
+                                    return label === 'Your Mods' || label === 'Add Mods';
+                                });
+                        const hasReadyText =
+                            text.includes('App is modded') ||
+                            text.includes('Everything should be ready to go!') ||
+                            (text.includes('Your Mods') && text.includes('Add Mods'));
+                        if (hasReadyText || hasModCards || hasModTabs) {
                             bridge.onMbfState('$RECOMMENDED_PACK_READY_STATE');
                         }
                     };

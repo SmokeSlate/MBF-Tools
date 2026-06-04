@@ -58,19 +58,19 @@ object AppPrefs {
         prefs(context).edit().remove(KEY_CURRENT_GUIDE_STEP).apply()
     }
 
-    fun hasPromptedRecommendedPackVersion(context: Context, versionTag: String): Boolean {
+    fun hasPromptedRecommendedPack(context: Context, packFingerprint: String): Boolean {
         return prefs(context)
                 .getStringSet(KEY_RECOMMENDED_PACK_PROMPTED_VERSIONS, emptySet())
-                ?.contains(versionTag) == true
+                ?.contains(packFingerprint) == true
     }
 
-    fun markRecommendedPackVersionPrompted(context: Context, versionTag: String) {
+    fun markRecommendedPackPrompted(context: Context, packFingerprint: String) {
         val current =
                 prefs(context)
                         .getStringSet(KEY_RECOMMENDED_PACK_PROMPTED_VERSIONS, emptySet())
                         ?.toMutableSet()
                         ?: mutableSetOf()
-        current.add(versionTag)
+        current.add(packFingerprint)
         prefs(context)
                 .edit()
                 .putStringSet(KEY_RECOMMENDED_PACK_PROMPTED_VERSIONS, current)
