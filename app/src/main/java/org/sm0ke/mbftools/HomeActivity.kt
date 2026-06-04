@@ -521,6 +521,10 @@ class HomeActivity : ComponentActivity() {
                             packageName = AppPrefs.getGameId(this),
                             deviceName = device
                     )
+            AppLog.info(
+                    "Home",
+                    "Resolved Beat Saber version tag for MBF launch: ${beatSaberVersionTag ?: "<none>"}"
+            )
             val browserUrl = runCatching {
                 val baseUrl = BridgeManager.startOrGetBrowserUrl(this, MBF_APP_URL)
                 buildBrowserUrl(baseUrl)

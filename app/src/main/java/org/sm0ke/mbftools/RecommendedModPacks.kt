@@ -87,8 +87,29 @@ object RecommendedModPacks {
         if (versionTag.isNullOrBlank()) {
             return null
         }
-        return packsByVersion[versionTag]
+        val trimmed = versionTag.trim()
+        packsByVersion[trimmed]?.let { return it }
+
+        val normalized = normalizeVersionTag(trimmed)
+        packsByVersion[normalized]?.let { return it }
+
+        val versionName = versionNameOf(normalized)
+        val byVersionName =
+                packsByVersion.entries.filter { versionNameOf(it.key) == versionName }.map { it.value }
+        if (byVersionName.size == 1) {
+            return byVersionName.first()
+        }
+
+        return null
     }
 
     fun supportedVersionTags(): Set<String> = packsByVersion.keys
+
+    private fun normalizeVersionTag(versionTag: String): String {
+        return versionTag.trim().replace('+', '_').replace(' ', '_')
+    }
+
+    private fun versionNameOf(versionTag: String): String {
+        return normalizeVersionTag(versionTag).substringBefore('_')
+    }
 }

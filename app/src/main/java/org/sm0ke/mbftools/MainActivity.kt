@@ -576,6 +576,10 @@ class MainActivity : ComponentActivity() {
                             packageName = AppPrefs.getGameId(this),
                             deviceName = device
                     )
+            AppLog.info(
+                    "Main",
+                    "Resolved Beat Saber version tag for MBF launch: ${beatSaberVersionTag ?: "<none>"}"
+            )
 
             val browserUrl = runCatching {
                 val baseUrl =
