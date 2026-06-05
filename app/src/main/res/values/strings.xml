@@ -64,6 +64,7 @@
     <string name="recommended_pack_prompt_install">Install Recommended Mods</string>
     <string name="recommended_pack_prompt_skip">Not Now</string>
     <string name="recommended_pack_install_started">Recommended mods queued in MBF. Required dependencies will install automatically.</string>
+    <string name="recommended_pack_install_failed">Could not prepare the recommended mod pack for MBF.</string>
     <string name="recommended_pack_unavailable">No recommended mod pack is mapped for this Beat Saber version yet.</string>
     <string name="action_change_details">Change Details</string>
     <string name="guide_support_title">Need help while setting up?</string>

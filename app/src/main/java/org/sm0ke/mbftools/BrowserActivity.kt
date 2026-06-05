@@ -2,20 +2,27 @@ package org.sm0ke.mbftools
 
 import android.annotation.SuppressLint
 import android.app.AlertDialog
+import android.app.Activity
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.util.Base64
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
+import android.webkit.ValueCallback
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
-import androidx.core.view.isVisible
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.FileProvider
+import androidx.core.view.isVisible
 import org.json.JSONArray
+import java.io.File
 
 class BrowserActivity : ComponentActivity() {
     private lateinit var webView: WebView
@@ -29,6 +36,12 @@ class BrowserActivity : ComponentActivity() {
     private var closeToHomeOnExit = false
     private var recommendedPackUiEnabled = false
     private var shouldAutoPromptRecommendedPack = false
+    private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
+    private var pendingRecommendedPackUpload: PendingRecommendedPackUpload? = null
+    private val fileChooserLauncher =
+            registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+                handleFileChooserResult(result.resultCode, result.data)
+            }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -79,6 +92,66 @@ class BrowserActivity : ComponentActivity() {
                                 title?.takeIf { it.isNotBlank() }
                                         ?: getString(R.string.browser_loading)
                     }
+
+                    override fun onShowFileChooser(
+                            webView: WebView?,
+                            filePathCallback: ValueCallback<Array<Uri>>?,
+                            fileChooserParams: FileChooserParams?
+                    ): Boolean {
+                        AppLog.info(
+                                "Browser",
+                                "WebView requested file chooser. pendingRecommendedPackUpload=${pendingRecommendedPackUpload != null} acceptTypes=${fileChooserParams?.acceptTypes?.joinToString().orEmpty()} mode=${fileChooserParams?.mode ?: -1}"
+                        )
+                        fileChooserCallback?.onReceiveValue(null)
+                        fileChooserCallback = filePathCallback
+
+                        if (filePathCallback == null) {
+                            AppLog.warn(
+                                    "Browser",
+                                    "WebView file chooser callback was null."
+                            )
+                            return false
+                        }
+
+                        pendingRecommendedPackUpload?.let { pendingUpload ->
+                            AppLog.info(
+                                    "Browser",
+                                    "Supplying staged recommended-pack file to WebView chooser: file=${pendingUpload.file.name} bytes=${pendingUpload.file.length()} uri=${pendingUpload.uri}"
+                            )
+                            filePathCallback.onReceiveValue(arrayOf(pendingUpload.uri))
+                            fileChooserCallback = null
+                            pendingRecommendedPackUpload = null
+                            return true
+                        }
+
+                        val chooserIntent =
+                                try {
+                                    fileChooserParams?.createIntent()
+                                            ?: Intent(Intent.ACTION_GET_CONTENT)
+                                                    .addCategory(Intent.CATEGORY_OPENABLE)
+                                                    .setType("*/*")
+                                } catch (error: Throwable) {
+                                    AppLog.warn(
+                                            "Browser",
+                                            "Failed to create WebView chooser intent: ${error.message ?: error.javaClass.simpleName}"
+                                    )
+                                    Intent(Intent.ACTION_GET_CONTENT)
+                                            .addCategory(Intent.CATEGORY_OPENABLE)
+                                            .setType("*/*")
+                                }
+
+                        return try {
+                            fileChooserLauncher.launch(chooserIntent)
+                            true
+                        } catch (error: Throwable) {
+                            AppLog.error(
+                                    "Browser",
+                                    "Failed to launch WebView chooser intent: ${error.message ?: error.javaClass.simpleName}"
+                            )
+                            fileChooserCallback = null
+                            false
+                        }
+                    }
                 }
         webView.webViewClient =
                 object : WebViewClient() {
@@ -115,6 +188,8 @@ class BrowserActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        fileChooserCallback?.onReceiveValue(null)
+        fileChooserCallback = null
         webView.destroy()
         super.onDestroy()
     }
@@ -410,13 +485,23 @@ class BrowserActivity : ComponentActivity() {
     private fun uploadRecommendedPackBundle(pack: RecommendedModPack) {
         val bundleName = pack.bundledQmodFileName ?: return
         val bundleBase64 = pack.bundledQmodBase64 ?: return
+        val stagedUpload = stageRecommendedPackUpload(bundleName, bundleBase64)
+        if (stagedUpload == null) {
+            AppLog.error(
+                    "Browser",
+                    "Failed to stage recommended-pack bundle for fingerprint=${pack.fingerprint} file=$bundleName"
+            )
+            Toast.makeText(this, R.string.recommended_pack_install_failed, Toast.LENGTH_LONG).show()
+            return
+        }
+        pendingRecommendedPackUpload = stagedUpload
         AppLog.info(
                 "Browser",
-                "Starting recommended-pack bundle upload for fingerprint=${pack.fingerprint} file=$bundleName"
+                "Starting recommended-pack bundle upload for fingerprint=${pack.fingerprint} file=$bundleName bytes=${stagedUpload.file.length()} uri=${stagedUpload.uri}"
         )
         val script =
                 """
-                (function(fileName, base64Data) {
+                (function(fileName) {
                     const bridge = window.$JS_BRIDGE_NAME;
                     const log = (message) => {
                         try {
@@ -426,97 +511,128 @@ class BrowserActivity : ComponentActivity() {
                         } catch (_) {}
                     };
                     const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-                    const decodeBase64 = (value) => {
-                        const binary = atob(value);
-                        const bytes = new Uint8Array(binary.length);
-                        for (let i = 0; i < binary.length; i++) {
-                            bytes[i] = binary.charCodeAt(i);
+                    const normalize = (value) => String(value || '')
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, ' ')
+                        .trim();
+                    const describe = (node) => {
+                        if (!node) {
+                            return '<null>';
                         }
-                        return bytes;
+                        const bits = [
+                            node.tagName || '',
+                            node.id ? '#' + node.id : '',
+                            node.className ? '.' + String(node.className).trim().replace(/\s+/g, '.') : '',
+                            node.getAttribute && node.getAttribute('aria-label') ? ' aria=' + node.getAttribute('aria-label') : '',
+                            node.textContent ? ' text=' + String(node.textContent).trim().slice(0, 48) : ''
+                        ];
+                        return bits.join('').trim();
                     };
-                    const buildFile = () => {
-                        const bytes = decodeBase64(base64Data);
-                        log('Constructed bundled qmod bytes=' + bytes.length + ' file=' + fileName + '.');
-                        return new File([bytes], fileName, { type: 'application/octet-stream' });
+                    const clickNode = (node) => {
+                        node.scrollIntoView({ block: 'center', inline: 'nearest' });
+                        node.click();
+                        log('Clicked upload target ' + describe(node) + '.');
+                        return true;
                     };
-                    const buildTransfer = (file) => {
-                        const transfer = new DataTransfer();
-                        transfer.items.add(file);
-                        return transfer;
-                    };
-                    const dispatchInputUpload = (input, transfer) => {
-                        input.files = transfer.files;
-                        input.dispatchEvent(new Event('input', { bubbles: true }));
-                        input.dispatchEvent(new Event('change', { bubbles: true }));
-                    };
-                    const tryFileInputs = (file) => {
-                        const inputs = Array.from(document.querySelectorAll('input[type=file]'));
-                        log('Found ' + inputs.length + ' file inputs while uploading recommended pack.');
-                        for (const input of inputs) {
+                    const tryOpenFileChooser = () => {
+                        const directInput = document.querySelector('input[type=file]');
+                        if (directInput) {
+                            return clickNode(directInput);
+                        }
+                        const candidates = Array.from(
+                            document.querySelectorAll('button, label, a, [role=button], div')
+                        ).filter((node) => {
+                            const label = normalize([
+                                node.textContent,
+                                node.getAttribute && node.getAttribute('aria-label'),
+                                node.getAttribute && node.getAttribute('title'),
+                                node.className,
+                                node.id
+                            ].filter(Boolean).join(' '));
+                            return label.includes('upload')
+                                || label.includes('import')
+                                || label.includes('local mod')
+                                || label.includes('add mod')
+                                || label.includes('drop');
+                        });
+                        log('Found ' + candidates.length + ' upload candidates while looking for the MBF file picker.');
+                        for (const candidate of candidates) {
                             try {
-                                const transfer = buildTransfer(file);
-                                dispatchInputUpload(input, transfer);
-                                log('Dispatched bundled qmod through a file input.');
-                                return true;
+                                if (clickNode(candidate)) {
+                                    return true;
+                                }
                             } catch (error) {
-                                log('File input upload attempt failed: ' + (error && error.message ? error.message : error));
-                            }
-                        }
-                        return false;
-                    };
-                    const dispatchDrop = (target, transfer) => {
-                        const events = ['dragenter', 'dragover', 'drop'];
-                        for (const type of events) {
-                            const event = new DragEvent(type, {
-                                bubbles: true,
-                                cancelable: true,
-                                dataTransfer: transfer
-                            });
-                            target.dispatchEvent(event);
-                        }
-                    };
-                    const tryDropTargets = (file) => {
-                        const transfer = buildTransfer(file);
-                        const targets = Array.from(new Set([
-                            document.querySelector('[class*="drop"]'),
-                            document.querySelector('[class*="upload"]'),
-                            document.querySelector('main'),
-                            document.getElementById('root'),
-                            document.body,
-                            document.documentElement
-                        ].filter(Boolean)));
-                        log('Trying synthetic drop upload across ' + targets.length + ' targets.');
-                        for (const target of targets) {
-                            try {
-                                dispatchDrop(target, transfer);
-                                log('Dispatched bundled qmod drop event to target ' + target.tagName + '.');
-                                return true;
-                            } catch (error) {
-                                log('Drop upload attempt failed on target ' + target.tagName + ': ' + (error && error.message ? error.message : error));
+                                log('Upload candidate click failed on ' + describe(candidate) + ': ' + (error && error.message ? error.message : error));
                             }
                         }
                         return false;
                     };
                     (async function() {
-                        const file = buildFile();
-                        for (let attempt = 0; attempt < 10; attempt++) {
-                            if (tryFileInputs(file)) {
-                                log('Bundled qmod upload succeeded via file input on attempt ' + (attempt + 1) + '.');
-                                return;
-                            }
-                            if (tryDropTargets(file)) {
-                                log('Bundled qmod upload dispatched via drag/drop on attempt ' + (attempt + 1) + '.');
+                        for (let attempt = 0; attempt < 20; attempt++) {
+                            if (tryOpenFileChooser()) {
+                                log('Activated MBF file chooser for bundled qmod ' + fileName + ' on attempt ' + (attempt + 1) + '.');
                                 return;
                             }
                             await wait(500);
                         }
-                        log('Bundled qmod upload could not find a usable MBF upload target.');
+                        log('Bundled qmod upload could not find a usable MBF upload target for ' + fileName + '.');
                     })();
-                })(${org.json.JSONObject.quote(bundleName)}, ${org.json.JSONObject.quote(bundleBase64)});
+                })(${org.json.JSONObject.quote(bundleName)});
                 """
                         .trimIndent()
         webView.evaluateJavascript(script, null)
         Toast.makeText(this, R.string.recommended_pack_install_started, Toast.LENGTH_LONG).show()
+    }
+
+    private fun stageRecommendedPackUpload(
+            fileName: String,
+            bundleBase64: String
+    ): PendingRecommendedPackUpload? {
+        return try {
+            val bytes = Base64.decode(bundleBase64, Base64.DEFAULT)
+            val updatesDir = File(cacheDir, "updates").apply { mkdirs() }
+            val file =
+                    File(updatesDir, sanitizeFileName(fileName)).apply {
+                        writeBytes(bytes)
+                    }
+            val uri =
+                    FileProvider.getUriForFile(
+                            this,
+                            "${packageName}.fileprovider",
+                            file
+                    )
+            AppLog.info(
+                    "Browser",
+                    "Staged recommended-pack upload file=${file.absolutePath} bytes=${file.length()} uri=$uri"
+            )
+            PendingRecommendedPackUpload(file = file, uri = uri)
+        } catch (error: Throwable) {
+            AppLog.error(
+                    "Browser",
+                    "Failed to stage recommended-pack upload file: ${error.message ?: error.javaClass.simpleName}"
+            )
+            null
+        }
+    }
+
+    private fun handleFileChooserResult(resultCode: Int, data: Intent?) {
+        val callback = fileChooserCallback ?: return
+        val uris =
+                if (resultCode == Activity.RESULT_OK) {
+                    WebChromeClient.FileChooserParams.parseResult(resultCode, data)
+                } else {
+                    null
+                }
+        AppLog.info(
+                "Browser",
+                "WebView chooser result received. resultCode=$resultCode uriCount=${uris?.size ?: 0} pendingRecommendedPackUpload=${pendingRecommendedPackUpload != null}"
+        )
+        callback.onReceiveValue(uris)
+        fileChooserCallback = null
+    }
+
+    private fun sanitizeFileName(fileName: String): String {
+        return fileName.replace(Regex("""[^A-Za-z0-9._-]"""), "_")
     }
 
     private inner class RecommendedPackBridge {
@@ -537,6 +653,11 @@ class BrowserActivity : ComponentActivity() {
             )
         }
     }
+
+    private data class PendingRecommendedPackUpload(
+            val file: File,
+            val uri: Uri
+    )
 
     companion object {
         const val EXTRA_URL = "extra_url"
