@@ -104,6 +104,11 @@
       padding: 0.3rem 0.8rem;
       border-radius: 999px;
     }
+    .badge-danger {
+      background: rgba(242, 78, 94, 0.15);
+      border-color: rgba(242, 78, 94, 0.35);
+      color: var(--brand-red);
+    }
     .hero h1 {
       font-size: clamp(2rem, 5vw, 3.2rem);
       font-weight: 800;
@@ -208,6 +213,60 @@
 
     /* Releases */
     #releases { padding: 4rem 2rem; max-width: 800px; margin: 0 auto; }
+    .release-featured {
+      margin-bottom: 1.5rem;
+      background:
+        radial-gradient(circle at top right, rgba(76, 178, 255, 0.18), transparent 36%),
+        var(--surface);
+      border: 1px solid rgba(76, 178, 255, 0.45);
+      border-radius: 20px;
+      padding: 1.6rem;
+    }
+    .release-featured-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.85rem;
+    }
+    .release-kicker {
+      color: var(--brand-blue);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+    }
+    .release-main-version {
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 0.35rem;
+    }
+    .release-subtitle {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+    .release-group {
+      margin-top: 2rem;
+    }
+    .release-group:first-child {
+      margin-top: 0;
+    }
+    .release-group-title {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      margin-bottom: 0.85rem;
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+    .release-group-sub {
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      font-weight: 500;
+    }
     .release-item {
       background: var(--surface);
       border: 1px solid var(--surface-border);
@@ -237,6 +296,11 @@
     }
     .release-dl:hover { background: rgba(76, 178, 255, 0.2); }
     #releases-loading { color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0; }
+    .release-empty {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      padding: 0.5rem 0 0;
+    }
 
     /* Footer */
     footer {
@@ -291,6 +355,7 @@
 
 <section class="hero">
   <img class="hero-logo" src="assets/logo.png" alt="MBF Tools" />
+  <div id="hero-version-badge" class="badge">Loading current version…</div>
   <h1>Beat Saber Modding,<br /><span>all on your Quest</span></h1>
   <p>MBF Tools guides you through enabling developer mode, pairing wirelessly, and launching MBF — the complete on-headset modding setup in a single app.</p>
   <div class="hero-actions">
@@ -382,7 +447,8 @@
 <section id="releases" style="max-width:800px;margin:0 auto;padding:4rem 2rem;">
   <div class="section-label">Changelog</div>
   <div class="section-title">Release Notes</div>
-  <div class="section-sub">Latest builds from GitHub Releases.</div>
+  <div class="section-sub">Stable releases stay pinned at the top. Betas are listed separately below.</div>
+  <div id="stable-release"></div>
   <div id="releases-list">
     <div id="releases-loading">Loading release notes…</div>
   </div>
@@ -401,15 +467,122 @@
 </footer>
 
 <script>
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function formatBody(markdown) {
+    return escapeHtml(markdown || 'No release notes.')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+      .replace(/^### (.+)/gm, '<strong>$1</strong>')
+      .replace(/^## (.+)/gm, '<strong>$1</strong>');
+  }
+
+  function formatDate(value) {
+    return new Date(value).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  }
+
+  function extractMainVersion(tag) {
+    const cleanTag = String(tag || '').replace(/^v/i, '').trim();
+    const match = cleanTag.match(/\d+\.\d+/);
+    return match ? match[0] : (cleanTag || 'Unknown');
+  }
+
+  function findApkAsset(release) {
+    return (release.assets || []).find(asset => asset.name.endsWith('.apk')) || null;
+  }
+
+  function renderReleaseCard(release) {
+    const apk = findApkAsset(release);
+    const dlHtml = apk
+      ? `<a class="release-dl" href="${apk.browser_download_url}">⬇ Download APK</a>`
+      : `<a class="release-dl" href="${release.html_url}" target="_blank" rel="noopener">View on GitHub</a>`;
+    const betaBadge = release.prerelease
+      ? ' <span class="badge badge-danger" style="font-size:0.7rem;vertical-align:middle;">beta</span>'
+      : '';
+
+    return `
+      <div class="release-item">
+        <div class="release-header">
+          <span class="release-tag">${escapeHtml(release.tag_name)}${betaBadge}</span>
+          <span class="release-date">${formatDate(release.published_at)}</span>
+        </div>
+        <div class="release-body">${formatBody(release.body)}</div>
+        ${dlHtml}
+      </div>
+    `;
+  }
+
+  function renderFeaturedRelease(release) {
+    const heroBadge = document.getElementById('hero-version-badge');
+    const stableRelease = release && !release.prerelease ? release : null;
+    const mainVersion = extractMainVersion(release?.tag_name);
+    heroBadge.textContent = stableRelease
+      ? `Current Stable • ${mainVersion}`
+      : `Latest Beta • ${mainVersion}`;
+    heroBadge.className = stableRelease ? 'badge' : 'badge badge-danger';
+
+    if (!release) {
+      return '<p class="release-empty">No releases are available yet.</p>';
+    }
+
+    const apk = findApkAsset(release);
+    const actionUrl = apk ? apk.browser_download_url : release.html_url;
+    const actionLabel = apk ? '⬇ Download This Build' : 'View on GitHub';
+    const subtitle = stableRelease
+      ? `Stable channel pinned here even when newer betas exist. Latest tag: ${release.tag_name}`
+      : `No stable release is published yet. Showing the newest beta build instead.`;
+
+    return `
+      <div class="release-featured">
+        <div class="release-featured-top">
+          <div>
+            <div class="release-kicker">${stableRelease ? 'Main Version' : 'Beta Preview'}</div>
+            <div class="release-main-version">${escapeHtml(mainVersion)}</div>
+            <div class="release-subtitle">${escapeHtml(subtitle)}</div>
+          </div>
+          <a class="release-dl" href="${actionUrl}" ${apk ? '' : 'target="_blank" rel="noopener"'}>
+            ${actionLabel}
+          </a>
+        </div>
+        <div class="release-body">${formatBody(release.body)}</div>
+      </div>
+    `;
+  }
+
+  function renderReleaseGroup(title, subtitle, releases) {
+    if (!releases.length) {
+      return '';
+    }
+
+    return `
+      <div class="release-group">
+        <div class="release-group-title">
+          <span>${title}</span>
+          ${subtitle ? `<span class="release-group-sub">${subtitle}</span>` : ''}
+        </div>
+        ${releases.map(renderReleaseCard).join('')}
+      </div>
+    `;
+  }
+
   async function loadReleases() {
     const container = document.getElementById('releases-list');
+    const stableContainer = document.getElementById('stable-release');
     const loading = document.getElementById('releases-loading');
     try {
       const res = await fetch('https://api.github.com/repos/SmokeSlate/MBF-Tools/releases', {
         headers: { Accept: 'application/vnd.github+json' }
       });
       if (!res.ok) throw new Error('GitHub API error');
-      const releases = await res.json();
+      const releases = (await res.json()).filter(r => !r.draft);
       loading.remove();
 
       if (!releases.length) {
@@ -417,40 +590,37 @@
         return;
       }
 
-      releases.slice(0, 6).forEach(r => {
-        const date = new Date(r.published_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-        const apk = r.assets.find(a => a.name.endsWith('.apk'));
-        const bodyEscaped = (r.body || 'No release notes.')
-          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-          .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-          .replace(/^### (.+)/gm, '<strong>$1</strong>')
-          .replace(/^## (.+)/gm, '<strong>$1</strong>');
+      const stableReleases = releases.filter(r => !r.prerelease);
+      const betaReleases = releases.filter(r => r.prerelease);
+      const featuredRelease = stableReleases[0] || releases[0];
 
-        const dlHtml = apk
-          ? `<a class="release-dl" href="${apk.browser_download_url}">⬇ Download APK</a>`
-          : `<a class="release-dl" href="${r.html_url}" target="_blank" rel="noopener">View on GitHub</a>`;
+      stableContainer.innerHTML = renderFeaturedRelease(featuredRelease);
 
-        container.insertAdjacentHTML('beforeend', `
-          <div class="release-item">
-            <div class="release-header">
-              <span class="release-tag">${r.tag_name} ${r.prerelease ? '<span style="font-size:0.7rem;background:rgba(242,78,94,0.15);color:#F24E5E;border:1px solid rgba(242,78,94,0.35);padding:0.1rem 0.5rem;border-radius:999px;vertical-align:middle;">pre-release</span>' : ''}</span>
-              <span class="release-date">${date}</span>
-            </div>
-            <div class="release-body">${bodyEscaped}</div>
-            ${dlHtml}
-          </div>
-        `);
-      });
+      const featuredStableTag = stableReleases[0]?.tag_name;
+      const additionalStableReleases = stableReleases
+        .filter((release, index) => index > 0 || release.tag_name !== featuredStableTag)
+        .slice(0, 5);
+      const recentBetaReleases = betaReleases.slice(0, 8);
 
-      // Update download button to latest release APK
-      if (releases[0]) {
-        const latestApk = releases[0].assets.find(a => a.name.endsWith('.apk'));
-        if (latestApk) {
-          document.getElementById('download-btn').href = latestApk.browser_download_url;
-        }
+      const sections = [];
+      if (additionalStableReleases.length) {
+        sections.push(renderReleaseGroup('More Stable Releases', 'Older public releases', additionalStableReleases));
+      }
+      if (recentBetaReleases.length) {
+        sections.push(renderReleaseGroup('Recent Betas', 'Preview builds kept separate from stable', recentBetaReleases));
+      }
+
+      container.innerHTML = sections.join('') || '<p class="release-empty">Only one release is published so far.</p>';
+
+      const latestStableApk = findApkAsset(featuredRelease);
+      if (latestStableApk) {
+        const downloadBtn = document.getElementById('download-btn');
+        downloadBtn.href = latestStableApk.browser_download_url;
+        downloadBtn.innerHTML = `⬇ Download ${extractMainVersion(featuredRelease.tag_name)} APK`;
       }
     } catch (e) {
       loading.textContent = 'Could not load release notes. Visit the GitHub releases page for the latest download.';
+      document.getElementById('hero-version-badge').textContent = 'View Releases on GitHub';
     }
   }
 
