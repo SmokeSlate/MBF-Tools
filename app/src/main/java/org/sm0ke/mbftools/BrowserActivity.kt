@@ -6,6 +6,8 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Base64
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
@@ -38,6 +40,10 @@ class BrowserActivity : ComponentActivity() {
     private var shouldAutoPromptRecommendedPack = false
     private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
     private var pendingRecommendedPackUpload: PendingRecommendedPackUpload? = null
+    private var recommendedPackInstallFingerprint: String? = null
+    private var recommendedPackUploadAttempt = 0
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var recommendedPackUploadRetryRunnable: Runnable? = null
     private val fileChooserLauncher =
             registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
                 handleFileChooserResult(result.resultCode, result.data)
@@ -119,6 +125,17 @@ class BrowserActivity : ComponentActivity() {
                                     "Supplying staged recommended-pack file to WebView chooser: file=${pendingUpload.file.name} bytes=${pendingUpload.file.length()} uri=${pendingUpload.uri}"
                             )
                             filePathCallback.onReceiveValue(arrayOf(pendingUpload.uri))
+                            cancelRecommendedPackUploadRetry()
+                            markRecommendedPackPromptedAfterConfirmedInstall(
+                                    pendingUpload.fingerprint,
+                                    "native file chooser handoff"
+                            )
+                            Toast.makeText(
+                                            this@BrowserActivity,
+                                            R.string.recommended_pack_install_started,
+                                            Toast.LENGTH_LONG
+                                    )
+                                    .show()
                             fileChooserCallback = null
                             pendingRecommendedPackUpload = null
                             return true
@@ -155,6 +172,19 @@ class BrowserActivity : ComponentActivity() {
                 }
         webView.webViewClient =
                 object : WebViewClient() {
+                    override fun onPageStarted(
+                            view: WebView?,
+                            url: String?,
+                            favicon: android.graphics.Bitmap?
+                    ) {
+                        super.onPageStarted(view, url, favicon)
+                        hasInjectedRecommendedPackObserver = false
+                        AppLog.info(
+                                "Browser",
+                                "Page started loading: ${url ?: "<unknown>"}"
+                        )
+                    }
+
                     override fun onPageFinished(view: WebView?, url: String?) {
                         super.onPageFinished(view, url)
                         AppLog.info(
@@ -188,6 +218,7 @@ class BrowserActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        cancelRecommendedPackUploadRetry()
         fileChooserCallback?.onReceiveValue(null)
         fileChooserCallback = null
         webView.destroy()
@@ -329,7 +360,7 @@ class BrowserActivity : ComponentActivity() {
                             "Browser",
                             "User accepted recommended-pack install from $source for fingerprint=${pack.fingerprint}"
                     )
-                    AppPrefs.markRecommendedPackPrompted(this, pack.fingerprint)
+                    shouldAutoPromptRecommendedPack = false
                     installRecommendedPack(pack)
                 }
                 .show()
@@ -355,6 +386,7 @@ class BrowserActivity : ComponentActivity() {
     }
 
     private fun installRecommendedPack(pack: RecommendedModPack) {
+        recommendedPackInstallFingerprint = pack.fingerprint
         if (!pack.bundledQmodBase64.isNullOrBlank() && !pack.bundledQmodFileName.isNullOrBlank()) {
             uploadRecommendedPackBundle(pack)
             return
@@ -396,22 +428,37 @@ class BrowserActivity : ComponentActivity() {
                         .toLowerCase()
                         .replace(/[^a-z0-9]+/g, ' ')
                         .trim();
+                    const reportSummary = (queued, total) => {
+                        try {
+                            if (bridge && typeof bridge.onRecommendedPackInstallSummary === 'function') {
+                                bridge.onRecommendedPackInstallSummary(String(queued), String(total));
+                            }
+                        } catch (_) {}
+                    };
                     const labels = (mod) => {
                         const raw = Array.isArray(mod.aliases) ? mod.aliases : [mod.name, mod.id];
                         return Array.from(new Set(raw.map(normalize).filter(Boolean)));
                     };
                     const findAddModsTab = () => {
-                        return Array.from(document.querySelectorAll('button, a, [role="tab"]'))
-                            .find(node => normalize(node.textContent).includes('add mods'));
+                        return Array.from(document.querySelectorAll('.tab-header'))
+                            .find(node => normalize(node.textContent) === 'add mods');
                     };
                     const clickAddModsTab = async () => {
                         for (let attempt = 0; attempt < 10; attempt++) {
                             const tab = findAddModsTab();
                             if (tab) {
-                                tab.click();
-                                log('Opened Add Mods tab on attempt ' + (attempt + 1) + '.');
-                                await wait(500);
-                                return true;
+                                if (!tab.classList.contains('selected')) {
+                                    tab.click();
+                                    log('Opened Add Mods tab on attempt ' + (attempt + 1) + '.');
+                                } else {
+                                    log('Add Mods tab already active on attempt ' + (attempt + 1) + '.');
+                                }
+                                await wait(350);
+                                if (document.querySelector('.modRepoCard') || document.querySelector('button.installMod')) {
+                                    return true;
+                                }
+                            } else {
+                                log('Add Mods tab was not ready on attempt ' + (attempt + 1) + '.');
                             }
                             await wait(300);
                         }
@@ -434,52 +481,57 @@ class BrowserActivity : ComponentActivity() {
                         return labels(mod).some(label => haystack.includes(label));
                     };
                     log('Install script started for ' + mods.length + ' recommended mods.');
-                    await clickAddModsTab();
-                    async function install(mod) {
-                        for (let attempt = 0; attempt < 40; attempt++) {
-                            if (attempt % 5 === 0) {
-                                await clickAddModsTab();
-                            }
-                            const cards = Array.from(document.querySelectorAll('.modRepoCard'));
-                            if (cards.length === 0) {
-                                log('No mod cards visible yet for ' + mod.name + ' on attempt ' + (attempt + 1) + '.');
-                                await wait(500);
-                                continue;
-                            }
-                            const card = cards.find(node => cardMatches(node, mod));
-                            if (!card) {
-                                log('Could not find card for ' + mod.name + ' on attempt ' + (attempt + 1) + '.');
-                                await wait(500);
-                                continue;
-                            }
-                            card.scrollIntoView({ block: 'center', inline: 'nearest' });
-                            const button = findInstallButton(card);
-                            if (button) {
-                                button.click();
-                                log('Queued mod install for ' + mod.name + ' on attempt ' + (attempt + 1) + '.');
-                                await wait(400);
-                                return true;
-                            }
-                            log('Found card for ' + mod.name + ' but no install button was available on attempt ' + (attempt + 1) + '.');
-                            await wait(500);
-                        }
-                        log('Could not queue mod install for ' + mod.name + ' after 40 attempts.');
-                        return false;
-                    }
                     (async function() {
-                        let successCount = 0;
-                        for (const mod of mods) {
-                            if (await install(mod)) {
-                                successCount += 1;
+                        try {
+                            await clickAddModsTab();
+                            let successCount = 0;
+                            async function install(mod) {
+                                for (let attempt = 0; attempt < 40; attempt++) {
+                                    if (attempt % 5 === 0) {
+                                        await clickAddModsTab();
+                                    }
+                                    const cards = Array.from(document.querySelectorAll('.modRepoCard'));
+                                    if (cards.length === 0) {
+                                        log('No mod cards visible yet for ' + mod.name + ' on attempt ' + (attempt + 1) + '.');
+                                        await wait(500);
+                                        continue;
+                                    }
+                                    const card = cards.find(node => cardMatches(node, mod));
+                                    if (!card) {
+                                        log('Could not find card for ' + mod.name + ' on attempt ' + (attempt + 1) + '.');
+                                        await wait(500);
+                                        continue;
+                                    }
+                                    card.scrollIntoView({ block: 'center', inline: 'nearest' });
+                                    const button = findInstallButton(card);
+                                    if (button) {
+                                        button.click();
+                                        log('Queued mod install for ' + mod.name + ' on attempt ' + (attempt + 1) + '.');
+                                        await wait(400);
+                                        return true;
+                                    }
+                                    log('Found card for ' + mod.name + ' but no install button was available on attempt ' + (attempt + 1) + '.');
+                                    await wait(500);
+                                }
+                                log('Could not queue mod install for ' + mod.name + ' after 40 attempts.');
+                                return false;
                             }
+                            for (const mod of mods) {
+                                if (await install(mod)) {
+                                    successCount += 1;
+                                }
+                            }
+                            log('Install script finished. queued=' + successCount + ' total=' + mods.length + '.');
+                            reportSummary(successCount, mods.length);
+                        } catch (error) {
+                            log('Install script crashed: ' + (error && error.message ? error.message : error));
+                            reportSummary(0, mods.length);
                         }
-                        log('Install script finished. queued=' + successCount + ' total=' + mods.length + '.');
                     })();
                 })($modsJson);
                 """
                         .trimIndent()
         webView.evaluateJavascript(script, null)
-        Toast.makeText(this, R.string.recommended_pack_install_started, Toast.LENGTH_LONG).show()
     }
 
     private fun uploadRecommendedPackBundle(pack: RecommendedModPack) {
@@ -491,17 +543,45 @@ class BrowserActivity : ComponentActivity() {
                     "Browser",
                     "Failed to stage recommended-pack bundle for fingerprint=${pack.fingerprint} file=$bundleName"
             )
+            recommendedPackInstallFingerprint = null
             Toast.makeText(this, R.string.recommended_pack_install_failed, Toast.LENGTH_LONG).show()
             return
         }
         pendingRecommendedPackUpload = stagedUpload
+        recommendedPackUploadAttempt = 0
         AppLog.info(
                 "Browser",
                 "Starting recommended-pack bundle upload for fingerprint=${pack.fingerprint} file=$bundleName bytes=${stagedUpload.file.length()} uri=${stagedUpload.uri}"
         )
+        attemptRecommendedPackBundleUpload(pack, bundleName)
+    }
+
+    private fun attemptRecommendedPackBundleUpload(
+            pack: RecommendedModPack,
+            bundleName: String
+    ) {
+        val pendingUpload = pendingRecommendedPackUpload
+        if (pendingUpload == null || pendingUpload.fingerprint != pack.fingerprint) {
+            return
+        }
+        if (recommendedPackUploadAttempt >= MAX_RECOMMENDED_PACK_UPLOAD_ATTEMPTS) {
+            AppLog.error(
+                    "Browser",
+                    "Recommended-pack upload never opened the MBF file chooser after $recommendedPackUploadAttempt attempts for fingerprint=${pack.fingerprint}"
+            )
+            pendingRecommendedPackUpload = null
+            recommendedPackInstallFingerprint = null
+            Toast.makeText(this, R.string.recommended_pack_install_failed, Toast.LENGTH_LONG).show()
+            return
+        }
+        recommendedPackUploadAttempt += 1
+        AppLog.info(
+                "Browser",
+                "Attempting recommended-pack bundle upload activation attempt=$recommendedPackUploadAttempt fingerprint=${pack.fingerprint} file=$bundleName"
+        )
         val script =
                 """
-                (function(fileName) {
+                (function(fileName, attemptNumber) {
                     const bridge = window.$JS_BRIDGE_NAME;
                     const log = (message) => {
                         try {
@@ -515,73 +595,66 @@ class BrowserActivity : ComponentActivity() {
                         .toLowerCase()
                         .replace(/[^a-z0-9]+/g, ' ')
                         .trim();
-                    const describe = (node) => {
-                        if (!node) {
-                            return '<null>';
-                        }
-                        const bits = [
-                            node.tagName || '',
-                            node.id ? '#' + node.id : '',
-                            node.className ? '.' + String(node.className).trim().replace(/\s+/g, '.') : '',
-                            node.getAttribute && node.getAttribute('aria-label') ? ' aria=' + node.getAttribute('aria-label') : '',
-                            node.textContent ? ' text=' + String(node.textContent).trim().slice(0, 48) : ''
-                        ];
-                        return bits.join('').trim();
+                    const findAddModsTab = () => {
+                        return Array.from(document.querySelectorAll('.tab-header'))
+                            .find(node => normalize(node.textContent) === 'add mods');
                     };
-                    const clickNode = (node) => {
-                        node.scrollIntoView({ block: 'center', inline: 'nearest' });
-                        node.click();
-                        log('Clicked upload target ' + describe(node) + '.');
-                        return true;
-                    };
-                    const tryOpenFileChooser = () => {
-                        const directInput = document.querySelector('input[type=file]');
-                        if (directInput) {
-                            return clickNode(directInput);
-                        }
-                        const candidates = Array.from(
-                            document.querySelectorAll('button, label, a, [role=button], div')
-                        ).filter((node) => {
-                            const label = normalize([
-                                node.textContent,
-                                node.getAttribute && node.getAttribute('aria-label'),
-                                node.getAttribute && node.getAttribute('title'),
-                                node.className,
-                                node.id
-                            ].filter(Boolean).join(' '));
-                            return label.includes('upload')
-                                || label.includes('import')
-                                || label.includes('local mod')
-                                || label.includes('add mod')
-                                || label.includes('drop');
-                        });
-                        log('Found ' + candidates.length + ' upload candidates while looking for the MBF file picker.');
-                        for (const candidate of candidates) {
-                            try {
-                                if (clickNode(candidate)) {
-                                    return true;
+                    const ensureAddModsTab = async () => {
+                        for (let step = 0; step < 8; step++) {
+                            const tab = findAddModsTab();
+                            if (tab) {
+                                if (!tab.classList.contains('selected')) {
+                                    tab.click();
+                                    log('Opened Add Mods tab while preparing bundled qmod upload on attempt ' + attemptNumber + '.');
                                 }
-                            } catch (error) {
-                                log('Upload candidate click failed on ' + describe(candidate) + ': ' + (error && error.message ? error.message : error));
+                                await wait(250);
+                                return true;
                             }
+                            await wait(250);
                         }
+                        log('Add Mods tab was not ready yet while preparing bundled qmod upload on attempt ' + attemptNumber + '.');
+                        return false;
+                    };
+                    const clickUploadButton = () => {
+                        const uploadButton = document.querySelector('#uploadButton');
+                        if (uploadButton) {
+                            uploadButton.scrollIntoView({ block: 'center', inline: 'nearest' });
+                            uploadButton.click();
+                            log('Clicked #uploadButton for bundled qmod ' + fileName + ' on attempt ' + attemptNumber + '.');
+                            return true;
+                        }
+                        const directInput = document.querySelector('input#file[type=file]');
+                        if (directInput) {
+                            directInput.click();
+                            log('Clicked hidden #file input for bundled qmod ' + fileName + ' on attempt ' + attemptNumber + '.');
+                            return true;
+                        }
+                        log('Upload button is not available yet on attempt ' + attemptNumber + '.');
                         return false;
                     };
                     (async function() {
-                        for (let attempt = 0; attempt < 20; attempt++) {
-                            if (tryOpenFileChooser()) {
-                                log('Activated MBF file chooser for bundled qmod ' + fileName + ' on attempt ' + (attempt + 1) + '.');
+                        await ensureAddModsTab();
+                        for (let step = 0; step < 4; step++) {
+                            if (clickUploadButton()) {
                                 return;
                             }
-                            await wait(500);
+                            await wait(300);
                         }
-                        log('Bundled qmod upload could not find a usable MBF upload target for ' + fileName + '.');
+                        log('Bundled qmod upload did not find #uploadButton on native attempt ' + attemptNumber + '.');
                     })();
-                })(${org.json.JSONObject.quote(bundleName)});
+                })(${org.json.JSONObject.quote(bundleName)}, $recommendedPackUploadAttempt);
                 """
                         .trimIndent()
         webView.evaluateJavascript(script, null)
-        Toast.makeText(this, R.string.recommended_pack_install_started, Toast.LENGTH_LONG).show()
+        cancelRecommendedPackUploadRetry()
+        recommendedPackUploadRetryRunnable =
+                Runnable {
+                    attemptRecommendedPackBundleUpload(pack, bundleName)
+                }
+        mainHandler.postDelayed(
+                recommendedPackUploadRetryRunnable!!,
+                RECOMMENDED_PACK_UPLOAD_RETRY_DELAY_MS
+        )
     }
 
     private fun stageRecommendedPackUpload(
@@ -605,7 +678,11 @@ class BrowserActivity : ComponentActivity() {
                     "Browser",
                     "Staged recommended-pack upload file=${file.absolutePath} bytes=${file.length()} uri=$uri"
             )
-            PendingRecommendedPackUpload(file = file, uri = uri)
+            PendingRecommendedPackUpload(
+                    fingerprint = recommendedPackInstallFingerprint ?: "",
+                    file = file,
+                    uri = uri
+            )
         } catch (error: Throwable) {
             AppLog.error(
                     "Browser",
@@ -635,6 +712,28 @@ class BrowserActivity : ComponentActivity() {
         return fileName.replace(Regex("""[^A-Za-z0-9._-]"""), "_")
     }
 
+    private fun cancelRecommendedPackUploadRetry() {
+        recommendedPackUploadRetryRunnable?.let(mainHandler::removeCallbacks)
+        recommendedPackUploadRetryRunnable = null
+    }
+
+    private fun markRecommendedPackPromptedAfterConfirmedInstall(
+            fingerprint: String,
+            confirmationSource: String
+    ) {
+        if (fingerprint.isBlank()) {
+            return
+        }
+        if (!AppPrefs.hasPromptedRecommendedPack(this, fingerprint)) {
+            AppPrefs.markRecommendedPackPrompted(this, fingerprint)
+        }
+        recommendedPackInstallFingerprint = null
+        AppLog.info(
+                "Browser",
+                "Confirmed recommended-pack install handoff via $confirmationSource for fingerprint=$fingerprint"
+        )
+    }
+
     private inner class RecommendedPackBridge {
         @JavascriptInterface
         fun onMbfState(state: String?) {
@@ -652,9 +751,42 @@ class BrowserActivity : ComponentActivity() {
                     "MBF recommended-pack observer: ${message?.trim().orEmpty().ifBlank { "<blank>" }}"
             )
         }
+
+        @JavascriptInterface
+        fun onRecommendedPackInstallSummary(queuedCount: String?, totalCount: String?) {
+            val queued = queuedCount?.toIntOrNull() ?: 0
+            val total = totalCount?.toIntOrNull() ?: 0
+            AppLog.info(
+                    "Browser",
+                    "Received recommended-pack install summary queued=$queued total=$total fingerprint=${recommendedPackInstallFingerprint ?: "<none>"}"
+            )
+            runOnUiThread {
+                if (queued > 0) {
+                    markRecommendedPackPromptedAfterConfirmedInstall(
+                            recommendedPackInstallFingerprint.orEmpty(),
+                            "MBF queued $queued of $total mods"
+                    )
+                    Toast.makeText(
+                                    this@BrowserActivity,
+                                    R.string.recommended_pack_install_started,
+                                    Toast.LENGTH_LONG
+                            )
+                            .show()
+                } else {
+                    recommendedPackInstallFingerprint = null
+                    Toast.makeText(
+                                    this@BrowserActivity,
+                                    R.string.recommended_pack_install_failed,
+                                    Toast.LENGTH_LONG
+                            )
+                            .show()
+                }
+            }
+        }
     }
 
     private data class PendingRecommendedPackUpload(
+            val fingerprint: String,
             val file: File,
             val uri: Uri
     )
@@ -668,6 +800,8 @@ class BrowserActivity : ComponentActivity() {
 
         private const val JS_BRIDGE_NAME = "MbfToolsBridge"
         private const val RECOMMENDED_PACK_READY_STATE = "ready"
+        private const val MAX_RECOMMENDED_PACK_UPLOAD_ATTEMPTS = 10
+        private const val RECOMMENDED_PACK_UPLOAD_RETRY_DELAY_MS = 1200L
         private val RECOMMENDED_PACK_OBSERVER_SCRIPT =
                 """
                 (function() {
@@ -686,17 +820,22 @@ class BrowserActivity : ComponentActivity() {
                             }
                         } catch (_) {}
                     };
+                    const normalize = (value) => String(value || '')
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, ' ')
+                        .trim();
                     log('Observer installed for ' + window.location.href);
                     const notify = () => {
                         const text = document.body ? String(document.body.innerText || '') : '';
                         const hasModCards =
                             document.querySelector('.modRepoCard') !== null ||
-                            document.querySelector('button.installMod') !== null;
+                            document.querySelector('button.installMod') !== null ||
+                            document.querySelector('#uploadButton') !== null;
                         const hasModTabs =
-                            Array.from(document.querySelectorAll('button, a, [role="tab"]'))
+                            Array.from(document.querySelectorAll('.tab-header'))
                                 .some(node => {
-                                    const label = String(node.textContent || '').trim();
-                                    return label === 'Your Mods' || label === 'Add Mods';
+                                    const label = normalize(node.textContent);
+                                    return label === 'your mods' || label === 'add mods';
                                 });
                         const hasReadyText =
                             text.includes('App is modded') ||
