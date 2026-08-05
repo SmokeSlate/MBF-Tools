@@ -5,10 +5,12 @@
   "description": "Cloudflare Worker backend for MBF Tools debug log sharing.",
   "type": "module",
   "scripts": {
+    "check": "node --check api/handler.js && node --test && wrangler deploy --dry-run --outdir .wrangler-check",
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "test": "node --test"
   },
   "devDependencies": {
-    "wrangler": "^3.0.0"
+    "wrangler": "4.118.0"
   }
 }

@@ -38,3 +38,9 @@ Thumbs.db
 
 api/node_modules
 api/node_modules/**
+
+# Wrangler local state and dry-run output
+api/.wrangler*/
+
+# Tooling scratch
+.playwright-mcp/

@@ -104,7 +104,26 @@ object DiagnosticsCollector {
 
     private fun collectNetworkInfo(context: Context): JSONObject {
         val manager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
-        val network = manager?.activeNetwork
+        if (manager == null) {
+            return JSONObject()
+                    .put("hasActiveNetwork", false)
+                    .put("hasWifiTransport", false)
+                    .put("hasInternetCapability", false)
+        }
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            @Suppress("DEPRECATION")
+            val networkInfo = manager.activeNetworkInfo
+            val connected = networkInfo?.isConnected == true
+            @Suppress("DEPRECATION")
+            val wifi = connected && networkInfo?.type == ConnectivityManager.TYPE_WIFI
+            return JSONObject()
+                    .put("hasActiveNetwork", connected)
+                    .put("hasWifiTransport", wifi)
+                    .put("hasInternetCapability", connected)
+        }
+
+        val network = manager.activeNetwork
         val capabilities = network?.let { manager.getNetworkCapabilities(it) }
         return JSONObject()
                 .put("hasActiveNetwork", network != null)

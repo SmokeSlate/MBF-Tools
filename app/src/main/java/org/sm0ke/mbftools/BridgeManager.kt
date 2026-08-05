@@ -15,7 +15,7 @@ object BridgeManager {
 
     @Synchronized
     fun startOrGetBrowserUrl(context: Context, appUrl: String): String {
-        if (bridgeProcess?.isAlive == true && !browserUrl.isNullOrBlank()) {
+        if (bridgeProcess?.isRunningCompat() == true && !browserUrl.isNullOrBlank()) {
             return browserUrl!!
         }
 

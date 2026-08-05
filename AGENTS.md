@@ -57,17 +57,24 @@ Single JavaScript ES module. All logic in one file, no framework, no build step.
 
 ### Routes
 
-| Method | Path / Query | Description |
-|--------|-------------|-------------|
-| `POST /` | — | Upload diagnostics JSON, returns `SharedLogReceipt` |
-| `GET /` | `?action=view&code=xxx` | Interactive HTML debug viewer |
-| `GET /` | `?action=summary&code=xxx` | JSON summary (add `&format=text` for plain text) |
-| `GET /` | `?action=message&code=xxx` | Discord-friendly plain text |
-| `GET /` | `?action=data&code=xxx` | Full JSON payload |
-| `GET /` | `?action=aifix&code=xxx` | AI fix suggestions via Pollinations |
-| `GET /admin` | — | Browse/manage logs (password protected) |
-| `POST /admin/login` | — | SHA-256 password check, sets session cookie |
-| `POST /admin/delete` | — | Delete a log by code |
+Canonical routes are path-style. The legacy `?action=<name>&code=<code>` query form
+is still accepted for every read route.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/` | Upload diagnostics JSON, returns `SharedLogReceipt` |
+| `GET` | `/{code}` | Interactive HTML debug viewer |
+| `GET` | `/summary/{code}` | JSON summary (add `?format=text` for plain text) |
+| `GET` | `/message/{code}` | Discord-friendly plain text |
+| `GET` | `/data/{code}` | Full stored record |
+| `GET` | `/aifix/{code}` | Short AI fix suggestions |
+| `GET` | `/diagnose/{code}` | Agentic diagnosis — requires `OPENROUTER_API_KEY` |
+| `POST` | `/followup/{code}` | Follow-up question on an existing diagnosis |
+| `GET` | `/admin` | Browse/manage logs (password protected) |
+| `POST` | `/admin/login` | Password check, issues signed session cookie |
+| `POST` | `/admin/logout` | Clears the session cookie |
+| `POST` | `/admin/delete` | Delete a log by code |
+| `POST` | `/admin/bulk-delete` | Delete multiple logs |
 
 ### Storage
 
@@ -109,15 +116,33 @@ Cloudflare KV namespace `LOGS` (binding name in `wrangler.toml`):
 }
 ```
 
-### AI fix endpoint
+### AI endpoints
 
-Calls `https://text.pollinations.ai/{url-encoded-prompt}` (GET, plain text response).
-The prompt includes all detected issues + setup state. No API key required.
+Two independent paths, do not conflate them:
+
+- **`/aifix/{code}`** — calls `https://text.pollinations.ai/{url-encoded-prompt}`
+  (GET, plain text response). The prompt includes all detected issues + setup
+  state. No API key required, so this always works.
+- **`/diagnose/{code}`** and **`/followup/{code}`** — agentic diagnosis via
+  OpenRouter (`OPENROUTER_API` chat-completions, model `DIAG_MODEL`). Requires the
+  `OPENROUTER_API_KEY` secret; both return 503 when it is unset.
 
 ### Admin auth
 
-Password verified server-side: `sha256(submitted_password) === ADMIN_HASH`.
-On success, sets `HttpOnly; Secure; SameSite=Strict` cookie `mbf_admin` with the hash value (24hr).
+Two Worker secrets are **required**; if either is missing or malformed, `/admin` returns 503:
+
+| Secret | Format | Purpose |
+|--------|--------|---------|
+| `ADMIN_PASSWORD_HASH` | 64 lowercase hex chars | `sha256(admin_password)` |
+| `ADMIN_SESSION_SECRET` | 32+ chars | HMAC key for signing session cookies |
+
+Password is verified server-side with a constant-time compare of `sha256(submitted_password)`
+against `ADMIN_PASSWORD_HASH`. On success the Worker issues a signed session token
+(`{expiresAt}.{uuid}.{HMAC-SHA256}`) in an `HttpOnly; Secure; SameSite=Strict; Path=/admin`
+cookie named `mbf_admin` — 8 hours by default, 30 days with "remember me".
+
+The cookie holds a signed token, **not** the password hash. Never reintroduce a hardcoded
+hash constant, and never set the cookie to the hash value itself.
 
 ### UI style
 
@@ -162,7 +187,17 @@ npx wrangler deploy
 ```
 
 Requires Cloudflare account logged in via `wrangler login`.
-KV namespace ID is already set in `wrangler.toml`. No other env vars needed.
+KV namespace ID is already set in `wrangler.toml`.
+
+Secrets must be set once per environment (see [Admin auth](#admin-auth)):
+
+```bash
+wrangler secret put ADMIN_PASSWORD_HASH    # required — /admin is 503 without it
+wrangler secret put ADMIN_SESSION_SECRET   # required — /admin is 503 without it
+wrangler secret put OPENROUTER_API_KEY     # optional — only for ?action=aifix
+```
+
+Validate a change without deploying: `npx wrangler deploy --dry-run`.
 
 ### Android app
 

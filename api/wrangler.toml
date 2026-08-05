@@ -10,6 +10,11 @@ id = "99d2d10849dc4644beeaffe5ffad70c3"
 # Set OPENROUTER_API_KEY as a Worker secret:  wrangler secret put OPENROUTER_API_KEY
 # Get a free key at https://openrouter.ai/keys
 
+# Required admin secrets — /admin returns 503 until BOTH are set:
+#   wrangler secret put ADMIN_PASSWORD_HASH    # sha256 of the admin password, 64 lowercase hex chars
+#   wrangler secret put ADMIN_SESSION_SECRET   # random string, 32+ chars, signs admin session cookies
+# Rotating ADMIN_SESSION_SECRET invalidates all existing admin sessions.
+
 # Custom domains — both must be proxied (orange-cloud) through Cloudflare DNS
 [[routes]]
 pattern = "logs.mbf.tools"
