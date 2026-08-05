@@ -16,6 +16,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.core.content.ContextCompat
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.ExecutorService
@@ -441,16 +442,17 @@ class HomeActivity : ComponentActivity() {
     }
 
     private fun openInstallPermissionSettings() {
-        val settingsIntent =
-                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
-                        .setData(Uri.parse("package:$packageName"))
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val fallbackIntent =
                 Intent(Settings.ACTION_SECURITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
-        if (!settingsIntent.tryLaunch()) {
-            fallbackIntent.tryLaunch()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val settingsIntent =
+                    Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
+                            .setData(Uri.parse("package:$packageName"))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (settingsIntent.tryLaunch()) return
         }
+        fallbackIntent.tryLaunch()
     }
 
     private fun resumePendingUpdateInstallIfAllowed() {
@@ -480,7 +482,7 @@ class HomeActivity : ComponentActivity() {
         val question =
                 TextView(this).apply {
                     text = item.question
-                    setTextColor(resources.getColor(R.color.text_primary, theme))
+                    setTextColor(ContextCompat.getColor(this@HomeActivity, R.color.text_primary))
                     setTypeface(typeface, Typeface.BOLD)
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
                 }
@@ -488,7 +490,7 @@ class HomeActivity : ComponentActivity() {
         val answer =
                 TextView(this).apply {
                     text = item.answer
-                    setTextColor(resources.getColor(R.color.text_secondary, theme))
+                    setTextColor(ContextCompat.getColor(this@HomeActivity, R.color.text_secondary))
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
                     setLineSpacing(0f, 1.15f)
                     layoutParams =

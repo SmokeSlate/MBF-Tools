@@ -6,6 +6,7 @@ import android.content.Context.NSD_SERVICE
 import android.net.ConnectivityManager
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
+import android.os.Build
 import android.provider.Settings
 import java.io.File
 import java.util.concurrent.CountDownLatch
@@ -40,7 +41,7 @@ object AdbManager {
 
     @Synchronized
     private fun ensureServer(context: Context) {
-        if (serverProcess?.isAlive == true) {
+        if (serverProcess?.isRunningCompat() == true) {
             return
         }
 
@@ -295,13 +296,9 @@ object AdbManager {
         val stderrFuture = streamReaderPool.submit<String> {
             process.errorStream.bufferedReader().use { it.readText() }
         }
-        val finished = process.waitFor(timeoutMs, TimeUnit.MILLISECONDS)
+        val finished = process.waitForCompat(timeoutMs)
         if (!finished) {
-            process.destroy()
-            if (!process.waitFor(500, TimeUnit.MILLISECONDS)) {
-                process.destroyForcibly()
-                process.waitFor(500, TimeUnit.MILLISECONDS)
-            }
+            process.terminateCompat()
             val stdout = runCatching { stdoutFuture.get(1, TimeUnit.SECONDS) }.getOrDefault("")
             val stderr =
                     runCatching { stderrFuture.get(1, TimeUnit.SECONDS) }
@@ -327,7 +324,15 @@ object AdbManager {
         val connectivityManager =
                 context.getSystemService(CONNECTIVITY_SERVICE) as? ConnectivityManager
                         ?: return emptySet()
-        val activeNetwork = connectivityManager.activeNetwork ?: return emptySet()
+        val activeNetwork =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    connectivityManager.activeNetwork
+                } else {
+                    @Suppress("DEPRECATION")
+                    connectivityManager.allNetworks.firstOrNull { network ->
+                        connectivityManager.getNetworkInfo(network)?.isConnected == true
+                    }
+                } ?: return emptySet()
         val linkProperties =
                 connectivityManager.getLinkProperties(activeNetwork) ?: return emptySet()
 

@@ -15,6 +15,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -153,10 +154,10 @@ class DiagnoseActivity : ComponentActivity() {
             text = if (item.ok) "✓" else "✗"
             setBackgroundResource(if (item.ok) R.drawable.bg_chip else R.drawable.bg_chip_warning)
             setTextColor(
-                resources.getColor(
+                ContextCompat.getColor(
+                    this@DiagnoseActivity,
                     if (item.ok) R.color.success_chip_text else R.color.warning_chip_text,
-                    theme,
-                ),
+                )
             )
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             setTypeface(typeface, Typeface.BOLD)
@@ -172,10 +173,10 @@ class DiagnoseActivity : ComponentActivity() {
         val label = TextView(this).apply {
             text = item.label
             setTextColor(
-                resources.getColor(
+                ContextCompat.getColor(
+                    this@DiagnoseActivity,
                     if (item.ok) R.color.text_secondary else R.color.text_primary,
-                    theme,
-                ),
+                )
             )
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             layoutParams = labelParams
@@ -195,7 +196,7 @@ class DiagnoseActivity : ComponentActivity() {
             }
             val hint = TextView(this).apply {
                 text = item.hint
-                setTextColor(resources.getColor(R.color.text_muted, theme))
+                setTextColor(ContextCompat.getColor(this@DiagnoseActivity, R.color.text_muted))
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
                 layoutParams = hintParams
             }

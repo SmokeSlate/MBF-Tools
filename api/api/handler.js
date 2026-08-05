@@ -1,7 +1,7 @@
 const COMMAND_PREFIX = '!s';
 const CODE_TTL = 60 * 60 * 24 * 30; // 30 days
-const ADMIN_HASH = 'e447973503108005e9143ebec44e5f4e2e025c04253ce80c4b113537fccff97d';
 const ADMIN_COOKIE = 'mbf_admin';
+const ADMIN_SESSION_MAX_AGE = 60 * 60 * 24 * 30;
 const PUBLIC_BASE_URL = 'https://logs.mbf.tools';
 const LEGACY_HOST = 'logs.sm0ke.org';
 const OPENROUTER_API = 'https://openrouter.ai/api/v1/chat/completions';
@@ -69,19 +69,25 @@ export default {
 async function handleAdmin(request, env, url, path) {
   if (path === '/admin/login') {
     if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+    const adminConfig = getAdminConfig_(env);
+    if (!adminConfig) {
+      return adminHtmlResponse_(renderAdminLogin_('Admin login is not configured.'), 503);
+    }
     const form = await request.formData();
     const password = form.get('password') || '';
     const remember = form.get('remember') === '1';
     const hash = await sha256hex(password);
-    if (hash !== ADMIN_HASH) {
-      return htmlResponse(renderAdminLogin_('Incorrect password.'));
+    if (!constantTimeEqual_(hash, adminConfig.passwordHash)) {
+      return adminHtmlResponse_(renderAdminLogin_('Incorrect password.'));
     }
-    const maxAge = remember ? 60 * 60 * 24 * 30 : 60 * 60 * 8; // 30 days or 8 hours
+    const maxAge = remember ? ADMIN_SESSION_MAX_AGE : 60 * 60 * 8; // 30 days or 8 hours
+    const sessionToken = await createAdminSession_(adminConfig.sessionSecret, maxAge);
     return new Response(null, {
       status: 302,
       headers: {
         Location: '/admin',
-        'Set-Cookie': `${ADMIN_COOKIE}=${ADMIN_HASH}; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}; Path=/`,
+        'Cache-Control': 'no-store',
+        'Set-Cookie': `${ADMIN_COOKIE}=${sessionToken}; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}; Path=/admin`,
       },
     });
   }
@@ -91,13 +97,14 @@ async function handleAdmin(request, env, url, path) {
       status: 302,
       headers: {
         Location: '/admin',
-        'Set-Cookie': `${ADMIN_COOKIE}=; HttpOnly; Secure; SameSite=Strict; Max-Age=0; Path=/`,
+        'Cache-Control': 'no-store',
+        'Set-Cookie': `${ADMIN_COOKIE}=; HttpOnly; Secure; SameSite=Strict; Max-Age=0; Path=/admin`,
       },
     });
   }
 
-  if (!isAdminAuthed_(request)) {
-    return htmlResponse(renderAdminLogin_());
+  if (!(await isAdminAuthed_(request, env))) {
+    return adminHtmlResponse_(renderAdminLogin_());
   }
 
   if (path === '/admin/delete') {
@@ -131,18 +138,108 @@ async function handleAdmin(request, env, url, path) {
     summary: k.metadata?.summary || '',
   }));
 
-  return htmlResponse(renderAdminPage_(rows));
+  return adminHtmlResponse_(renderAdminPage_(rows));
 }
 
-function isAdminAuthed_(request) {
+function getAdminConfig_(env) {
+  const passwordHash = (env.ADMIN_PASSWORD_HASH || '').trim().toLowerCase();
+  const sessionSecret = (env.ADMIN_SESSION_SECRET || '').trim();
+  if (!/^[a-f0-9]{64}$/.test(passwordHash) || sessionSecret.length < 32) return null;
+  return { passwordHash, sessionSecret };
+}
+
+async function isAdminAuthed_(request, env) {
+  const adminConfig = getAdminConfig_(env);
+  if (!adminConfig) return false;
+
   const cookie = request.headers.get('Cookie') || '';
   const match = cookie.match(new RegExp(`(?:^|;\\s*)${ADMIN_COOKIE}=([^;]+)`));
-  return match?.[1] === ADMIN_HASH;
+  if (!match) return false;
+
+  let token;
+  try {
+    token = decodeURIComponent(match[1]);
+  } catch {
+    return false;
+  }
+  const parts = token.split('.');
+  if (parts.length !== 3 || !/^\d+$/.test(parts[0])) return false;
+  const expiresAt = Number(parts[0]);
+  if (!Number.isSafeInteger(expiresAt) || expiresAt <= Math.floor(Date.now() / 1000)) return false;
+
+  const payload = `${parts[0]}.${parts[1]}`;
+  return verifyAdminSignature_(payload, parts[2], adminConfig.sessionSecret);
 }
 
 async function sha256hex(text) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  const buf = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function createAdminSession_(secret, maxAge) {
+  const expiresAt = Math.floor(Date.now() / 1000) + maxAge;
+  const payload = `${expiresAt}.${globalThis.crypto.randomUUID()}`;
+  const signature = await signAdminPayload_(payload, secret);
+  return `${payload}.${signature}`;
+}
+
+async function signAdminPayload_(payload, secret) {
+  const key = await importAdminHmacKey_(secret, ['sign']);
+  const signature = await globalThis.crypto.subtle.sign(
+    'HMAC',
+    key,
+    new TextEncoder().encode(payload),
+  );
+  return bytesToBase64Url_(new Uint8Array(signature));
+}
+
+async function verifyAdminSignature_(payload, signature, secret) {
+  let signatureBytes;
+  try {
+    signatureBytes = base64UrlToBytes_(signature);
+  } catch {
+    return false;
+  }
+  const key = await importAdminHmacKey_(secret, ['verify']);
+  return globalThis.crypto.subtle.verify(
+    'HMAC',
+    key,
+    signatureBytes,
+    new TextEncoder().encode(payload),
+  );
+}
+
+function importAdminHmacKey_(secret, usages) {
+  return globalThis.crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    usages,
+  );
+}
+
+function bytesToBase64Url_(bytes) {
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
+function base64UrlToBytes_(value) {
+  if (!/^[A-Za-z0-9_-]+$/.test(value)) throw new Error('Invalid base64url value.');
+  const padding = '='.repeat((4 - (value.length % 4)) % 4);
+  const decoded = atob(value.replace(/-/g, '+').replace(/_/g, '/') + padding);
+  return Uint8Array.from(decoded, character => character.charCodeAt(0));
+}
+
+function constantTimeEqual_(left, right) {
+  const length = Math.max(left.length, right.length);
+  let difference = left.length ^ right.length;
+  for (let index = 0; index < length; index += 1) {
+    difference |= (left.charCodeAt(index) || 0) ^ (right.charCodeAt(index) || 0);
+  }
+  return difference === 0;
 }
 
 // ─── Upload ───────────────────────────────────────────────────────────────────
@@ -715,6 +812,17 @@ function textResponse(text, extraHeaders = {}) {
 }
 function htmlResponse(html, extraHeaders = {}) {
   return new Response(html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', ...extraHeaders } });
+}
+function adminHtmlResponse_(html, status = 200) {
+  return new Response(html, {
+    status,
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'Referrer-Policy': 'no-referrer',
+      'X-Frame-Options': 'DENY',
+    },
+  });
 }
 function escapeHtml_(value) {
   return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
