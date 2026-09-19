@@ -583,7 +583,7 @@ class MainActivity : ComponentActivity() {
 
             val browserUrl = runCatching {
                 val baseUrl =
-                        BridgeManager.startOrGetBrowserUrl(context = this, appUrl = MBF_APP_URL)
+                        BridgeManager.startOrGetBrowserUrl(context = this, appUrl = MbfConfig.APP_URL)
                 buildBrowserUrl(baseUrl)
             }
 
@@ -934,7 +934,6 @@ class MainActivity : ComponentActivity() {
         private const val SETTINGS_PACKAGE = "com.android.settings"
         private const val DEVELOPMENT_SETTINGS_KEY = "development_settings_enabled"
         private const val ADB_ENABLED_KEY = "adb_enabled"
-        private const val MBF_APP_URL = "https://dantheman827.github.io/ModsBeforeFriday/"
         private const val STATUS_OK_COLOR = 0xFF65D17A.toInt()
         private const val STATUS_WARN_COLOR = 0xFFFFB35C.toInt()
         private const val POLL_INTERVAL_MS = 3_000L

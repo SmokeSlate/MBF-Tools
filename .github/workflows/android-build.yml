@@ -23,11 +23,11 @@ jobs:
       - name: Ensure Gradle wrapper is executable
         run: chmod +x gradlew
 
+      - name: Run release unit tests and lint
+        run: ./gradlew testReleaseUnitTest lintRelease
+
       - name: Build debug APK
         run: ./gradlew assembleDebug
-
-      - name: Build release APK
-        run: ./gradlew assembleRelease
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
@@ -35,8 +35,25 @@ jobs:
           name: app-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Upload release APK
-        uses: actions/upload-artifact@v4
+  worker:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          name: app-release-apk
-          path: app/build/outputs/apk/release/*.apk
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+
+      - name: Install Worker dependencies
+        run: npm ci
+
+      - name: Test and dry-run Worker build
+        run: npm run check

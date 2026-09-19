@@ -44,6 +44,7 @@ It describes the project layout, conventions, and key facts needed to work effec
 │
 ├── build-and-push.ps1          Build debug APK + adb install
 ├── build-release.ps1           Build signed release APK
+├── setup-release-signing.ps1   One-time protected signing-key rotation/setup
 └── README.md
 ```
 
@@ -209,7 +210,12 @@ Validate a change without deploying: `npx wrangler deploy --dry-run`.
 .\build-release.ps1
 ```
 
-Signing config read from `keystore/signing.properties` (gitignored).
+Release signing uses the DPAPI-protected config in
+`%LOCALAPPDATA%\MBFTools\Signing\signing-config.clixml`. The build is signed with
+the old-to-new proof-of-rotation lineage from API 28 onward; never put either
+keystore or plaintext credentials back in the repository. Run
+`setup-release-signing.ps1` only for the one-time initial migration, not for
+normal releases.
 
 ---
 

@@ -39,10 +39,14 @@ Single-app Quest setup, support, and MBF integration for [mbf-launcher](https://
 
 **Signed release APK:**
 ```powershell
+.\setup-release-signing.ps1 # one-time migration/setup only
 .\build-release.ps1
 ```
 
-Requires Android SDK and a `app/signing.properties` file with keystore credentials for release builds.
+The one-time setup moves signing credentials out of the repository, creates an
+Android proof-of-rotation lineage, and stores the new credentials encrypted to
+the current Windows user under `%LOCALAPPDATA%\MBFTools\Signing`. Normal release
+builds only require `.\build-release.ps1` after that setup is complete.
 
 ---
 

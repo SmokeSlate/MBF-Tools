@@ -3,45 +3,22 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
-import java.util.Properties
-import java.io.FileInputStream
-
 android {
     namespace 'org.sm0ke.mbftools'
     compileSdk 34
-
-    def keystorePropsFile = rootProject.file("app/signing.properties")
-    def keystoreProps = new Properties()
-    if (keystorePropsFile.exists()) {
-        keystoreProps.load(new FileInputStream(keystorePropsFile))
-    }
-
-    signingConfigs {
-        release {
-            if (keystorePropsFile.exists()) {
-                storeFile file(keystoreProps['storeFile'])
-                storePassword keystoreProps['storePassword']
-                keyAlias keystoreProps['keyAlias']
-                keyPassword keystoreProps['keyPassword']
-            }
-        }
-    }
 
     defaultConfig {
         applicationId 'org.sm0ke.mbftools'
         minSdk 21
         targetSdk 34
-        versionCode 44
-        versionName '3.6.1'
+        versionCode 45
+        versionName '3.6.2'
     }
 
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            if (keystorePropsFile.exists()) {
-                signingConfig signingConfigs.release
-            }
         }
     }
 

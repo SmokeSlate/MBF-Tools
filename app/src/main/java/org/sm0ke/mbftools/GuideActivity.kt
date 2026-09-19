@@ -645,7 +645,7 @@ class GuideActivity : ComponentActivity() {
                     "Resolved Beat Saber version tag for MBF launch: ${beatSaberVersionTag ?: "<none>"}"
             )
             val browserUrl = runCatching {
-                val baseUrl = BridgeManager.startOrGetBrowserUrl(this, MBF_APP_URL)
+                val baseUrl = BridgeManager.startOrGetBrowserUrl(this, MbfConfig.APP_URL)
                 buildBrowserUrl(baseUrl)
             }
 
@@ -959,7 +959,6 @@ class GuideActivity : ComponentActivity() {
         private const val ADB_WIFI_KEY = "adb_wifi_enabled"
         private const val DEVELOPMENT_SETTINGS_KEY = "development_settings_enabled"
         private const val ADB_ENABLED_KEY = "adb_enabled"
-        private const val MBF_APP_URL = "https://dantheman827.github.io/ModsBeforeFriday/"
         private const val FIX_FORM_URL = "https://wiki.sm0ke.org/fix"
         private const val FAQ_PAGE_URL = "https://wiki.sm0ke.org/#/faq"
         private const val POLL_INTERVAL_MS = 3_000L

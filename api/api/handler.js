@@ -67,12 +67,13 @@ export default {
 // ─── Admin ────────────────────────────────────────────────────────────────────
 
 async function handleAdmin(request, env, url, path) {
+  const adminConfig = getAdminConfig_(env);
+  if (!adminConfig && path !== '/admin/logout') {
+    return adminHtmlResponse_(renderAdminLogin_('Admin login is not configured.'), 503);
+  }
+
   if (path === '/admin/login') {
     if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
-    const adminConfig = getAdminConfig_(env);
-    if (!adminConfig) {
-      return adminHtmlResponse_(renderAdminLogin_('Admin login is not configured.'), 503);
-    }
     const form = await request.formData();
     const password = form.get('password') || '';
     const remember = form.get('remember') === '1';

@@ -7,12 +7,6 @@ local.properties
 # Android/Gradle build output
 build/
 */build/
-!app/build/
-app/build/*
-!app/build/outputs/
-app/build/outputs/*
-!app/build/outputs/apk/
-!app/build/outputs/apk/**
 .cxx/
 .externalNativeBuild/
 captures/
@@ -32,8 +26,13 @@ captures/
 # OS files
 .DS_Store
 Thumbs.db
-# app/signing.properties
-# keystore/mbftools-release.jks
+# Release signing credentials must be supplied locally and never committed.
+app/signing.properties
+keystore/*.jks
+
+# Release binaries are GitHub Release assets, not source files.
+release/*.apk
+release/*.sha256
 
 
 api/node_modules
