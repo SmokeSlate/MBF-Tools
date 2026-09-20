@@ -1,5 +1,7 @@
 # MBF Tools and Setup v3.6.2
 
+The source is now licensed under the GNU Affero General Public License v3.0.
+
 ## Fixes
 
 - Fixed the MBF connection loop reported in mbf-launcher issue #18 by loading

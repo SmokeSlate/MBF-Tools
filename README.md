@@ -72,4 +72,4 @@ Key classes: `LauncherActivity`, `HomeActivity`, `GuideActivity`, `MainActivity`
 
 ---
 
-MIT License
+GNU Affero General Public License v3.0
