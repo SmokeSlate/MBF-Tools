@@ -13,14 +13,10 @@ function Invoke-GradleBuild {
 
     Push-Location $ProjectDir
     try {
-        $process = Start-Process `
-            -FilePath "cmd.exe" `
-            -ArgumentList "/c", "gradlew.bat --configuration-cache $GradleTask" `
-            -WorkingDirectory $ProjectDir `
-            -NoNewWindow `
-            -Wait `
-            -PassThru
-        return ($process.ExitCode -eq 0)
+        $gradleArguments = @('--configuration-cache') +
+            $GradleTask.Split(' ', [StringSplitOptions]::RemoveEmptyEntries)
+        & (Join-Path $ProjectDir 'gradlew.bat') @gradleArguments
+        return ($LASTEXITCODE -eq 0)
     } finally {
         Pop-Location
     }
