@@ -55,7 +55,7 @@ jobs:
         working-directory: mbf-source
         run: |
           pnpm install --frozen-lockfile --config.dangerouslyAllowAllBuilds=true
-          pnpm -r --filter 'mbf-site^...' build
+          pnpm -r --filter 'mbf-site...' build
 
       - name: Assemble Pages artifact
         run: |
