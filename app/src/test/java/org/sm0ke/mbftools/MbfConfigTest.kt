@@ -6,7 +6,7 @@ import org.junit.Test
 class MbfConfigTest {
 
     @Test
-    fun appUrl_usesCanonicalMbfDeployment() {
-        assertEquals("https://mbf.bsquest.xyz/", MbfConfig.APP_URL)
+    fun appUrl_usesBridgeAwareDeployment() {
+        assertEquals("https://github.sm0ke.org/MBF-Tools/mbf/", MbfConfig.APP_URL)
     }
 }

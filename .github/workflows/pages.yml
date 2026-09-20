@@ -1,0 +1,73 @@
+name: Deploy site and bridge-aware MBF
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs/**
+      - web/**
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out MBF Tools
+        uses: actions/checkout@v4
+
+      - name: Check out bridge-aware MBF
+        uses: actions/checkout@v4
+        with:
+          repository: DanTheMan827/ModsBeforeFriday
+          ref: a9722024aef1552986d00d6f89e454cb049211ee
+          path: mbf-source
+          submodules: recursive
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install pnpm
+        run: npm install --global pnpm@11.19.0
+
+      - name: Download and verify fixed agent
+        run: |
+          curl --fail --location --silent --show-error https://mbf.bsquest.xyz/mbf-agent --output mbf-source/mbf-site/public/mbf-agent
+          echo 'c8a047a4b93710fdd14aa896f36343e23407015315ff79a593fca3266cc2826b  mbf-source/mbf-site/public/mbf-agent' | sha256sum --check --status
+          test "$(wc -c < mbf-source/mbf-site/public/mbf-agent)" -eq 14760488
+          cp web/agent_manifest.ts mbf-source/mbf-site/src/agent_manifest.ts
+
+      - name: Build bridge-aware MBF
+        working-directory: mbf-source
+        run: |
+          pnpm install --frozen-lockfile --config.dangerouslyAllowAllBuilds=true
+          pnpm -r --filter 'mbf-site^...' build
+
+      - name: Assemble Pages artifact
+        run: |
+          mkdir -p site/mbf
+          cp -R docs/. site/
+          cp -R mbf-source/mbf-site/dist/. site/mbf/
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
