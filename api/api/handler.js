@@ -13,32 +13,21 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // Permanent redirect: logs.sm0ke.org → logs.mbf.tools
-    // CORS headers are required here too — a preflight OPTIONS to the old
-    // domain would otherwise get an opaque redirect and the browser would
-    // report a CORS failure before even reaching the real endpoint.
-    if (url.hostname === LEGACY_HOST) {
-      url.hostname = 'logs.mbf.tools';
-      return new Response(null, {
-        status: 301,
-        headers: {
-          Location: url.toString(),
-          'Cache-Control': 'max-age=86400',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type',
-        },
-      });
-    }
-
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
     };
-
+    // Preflights must not redirect; 308 preserves upload methods and bodies.
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders });
+    }
+    if (url.hostname === LEGACY_HOST) {
+      url.hostname = 'logs.mbf.tools';
+      return new Response(null, {
+        status: 308,
+        headers: { ...corsHeaders, Location: url.toString(), 'Cache-Control': 'max-age=86400' },
+      });
     }
 
     const path = url.pathname.replace(/\/+$/, '') || '/';
@@ -251,7 +240,7 @@ async function handleUpload(request, env, url, corsHeaders) {
     try { payload = await request.json(); } catch {
       return jsonResponse({ ok: false, error: 'Request body was not valid JSON.' }, 400, corsHeaders);
     }
-    if (!payload || typeof payload !== 'object') {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
       return jsonResponse({ ok: false, error: 'Payload must be a JSON object.' }, 400, corsHeaders);
     }
 
@@ -515,6 +504,25 @@ async function handleFollowup(request, env, code, corsHeaders) {
     return jsonResponse({ ok: false, error: 'Missing log code.' }, 400, corsHeaders);
   }
 
+  let body;
+  try { body = await request.json(); } catch {
+    return jsonResponse({ ok: false, error: 'Invalid JSON body.' }, 400, corsHeaders);
+  }
+
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return jsonResponse({ ok: false, error: 'Body must be a JSON object.' }, 400, corsHeaders);
+  }
+  const question = typeof body.question === 'string' ? body.question.trim() : '';
+  if (!question || question.length > 4000) {
+    return jsonResponse({ ok: false, error: 'question must contain 1–4000 characters.' }, 400, corsHeaders);
+  }
+  const history = body.history === undefined ? [] : body.history;
+  if (!Array.isArray(history) || history.length > 10 || history.some(m =>
+    !m || !['user', 'assistant'].includes(m.role) || typeof m.content !== 'string' ||
+    m.content.length > 4000)) {
+    return jsonResponse({ ok: false, error: 'history must contain at most 10 user/assistant messages of at most 4000 characters.' }, 400, corsHeaders);
+  }
+
   const ip = request.headers.get('CF-Connecting-IP')
     || request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim()
     || 'unknown';
@@ -530,7 +538,13 @@ async function handleFollowup(request, env, code, corsHeaders) {
   }
 
   // Rate limit: 10 requests per minute per IP
-  const rateResult = await checkAndIncrementRateLimit(env, ip);
+  let rateResult;
+  try {
+    rateResult = await checkAndIncrementRateLimit(env, ip);
+  } catch {
+    // Fail closed: do not call AI when the limiter is unavailable.
+    return jsonResponse({ ok: false, error: 'Rate limiter unavailable. Try again later.' }, 503, corsHeaders);
+  }
   if (!rateResult.allowed) {
     return jsonResponse({
       ok: false,
@@ -545,24 +559,8 @@ async function handleFollowup(request, env, code, corsHeaders) {
     return jsonResponse({ ok: false, error: `No log found for code ${code}.` }, 404, corsHeaders);
   }
 
-  let body;
-  try { body = await request.json(); } catch {
-    return jsonResponse({ ok: false, error: 'Invalid JSON body.' }, 400, corsHeaders);
-  }
-
-  const question = String(body.question || '').trim();
-  if (!question) {
-    return jsonResponse({ ok: false, error: 'question is required.' }, 400, corsHeaders);
-  }
-
-  // Accept up to last 10 prior messages for context (5 exchanges)
-  const history = Array.isArray(body.history)
-    ? body.history.slice(-10).filter(m => m && typeof m.role === 'string' && typeof m.content === 'string')
-    : [];
-
-  const record = JSON.parse(raw);
-
   try {
+    const record = JSON.parse(raw);
     const result = await runFollowupChat(env, record, question, history);
 
     if (result.isAbuse) {
@@ -598,7 +596,7 @@ async function runFollowupChat(env, record, question, history) {
 
   const messages = [
     { role: 'system', content: systemPrompt },
-    ...history,
+    ...history.map(({ role, content }) => ({ role, content })),
     { role: 'user', content: question },
   ];
 
@@ -655,20 +653,38 @@ function isOffTopicAbuse(question) {
 // ─── Rate limiting & IP banning ───────────────────────────────────────────────
 
 async function checkAndIncrementRateLimit(env, ip) {
-  const key = `ratelimit:${ip}`;
-  const now = Date.now();
+  const id = env.FOLLOWUP_LIMITER.idFromName(ip);
+  const response = await env.FOLLOWUP_LIMITER.get(id).fetch('https://limiter/consume', { method: 'POST' });
+  if (!response.ok) throw new Error('Rate limiter unavailable');
+  return response.json();
+}
 
-  const stored = await env.LOGS.get(key, { type: 'json' }).catch(() => null);
-  const windowActive = stored && stored.resetAt > now;
-  const count = windowActive ? stored.count : 0;
-  const resetAt = windowActive ? stored.resetAt : now + 60_000;
+// One Durable Object per IP serializes the counter across Worker isolates.
+export class FollowupLimiter {
+  constructor(state) { this.storage = state.storage; }
 
-  if (count >= 10) {
-    return { allowed: false, retryAfter: Math.ceil((resetAt - now) / 1000) };
+  async fetch() {
+    const result = await this.storage.transaction(async txn => {
+      const now = Date.now();
+      const stored = await txn.get('window');
+      const active = stored && stored.resetAt > now;
+      const count = active ? stored.count : 0;
+      const resetAt = active ? stored.resetAt : now + 60_000;
+      if (count >= 10) return { allowed: false, retryAfter: Math.ceil((resetAt - now) / 1000) };
+      await txn.put('window', { count: count + 1, resetAt });
+      // Bound storage lifetime for inactive IPs.
+      await txn.setAlarm(resetAt);
+      return { allowed: true, remaining: 9 - count };
+    });
+    return Response.json(result);
   }
 
-  await env.LOGS.put(key, JSON.stringify({ count: count + 1, resetAt }), { expirationTtl: 61 });
-  return { allowed: true, remaining: 9 - count };
+  async alarm() {
+    await this.storage.transaction(async txn => {
+      const stored = await txn.get('window');
+      if (stored && stored.resetAt <= Date.now()) await txn.delete('window');
+    });
+  }
 }
 
 async function getIpBan(env, ip) {
@@ -1075,7 +1091,7 @@ function renderAdminPage_(rows) {
     var sk = state.sortKey, sd = state.sortDir;
     rows.sort(function(a,b){
       var va=a[sk]||'', vb=b[sk]||'';
-      return va<vb ? sd : va>vb ? -sd : 0;
+      return va<vb ? -sd : va>vb ? sd : 0;
     });
     return rows;
   }

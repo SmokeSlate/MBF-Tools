@@ -61,7 +61,8 @@ class DiagnoseActivity : ComponentActivity() {
         btnDiagOpenAppInfo.setOnClickListener { openSettingsAppInfo() }
         btnDiagReconnect.setOnClickListener { reconnectHeadset() }
         btnDiagOpenGuide.setOnClickListener {
-            startActivity(Intent(this, GuideActivity::class.java))
+            startActivity(Intent(this, GuideActivity::class.java)
+                    .putExtra(GuideActivity.EXTRA_REVISIT_SETUP, true))
         }
 
         runQuickCheck()
@@ -267,13 +268,15 @@ class DiagnoseActivity : ComponentActivity() {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
                     val savedPort = AppPrefs.getDebugPort(this@DiagnoseActivity).trim().toIntOrNull()
-                    val port = savedPort
-                        ?: runCatching { AdbManager.detectDebugPort(this@DiagnoseActivity) }.getOrDefault(0)
-                    if (port > 0) {
-                        AdbManager.connect(this@DiagnoseActivity, port)
-                    } else {
-                        null
-                    }
+                    ConnectionRecovery.connect(
+                        initialPort = savedPort ?: 0,
+                        detect = { AdbManager.detectDebugPort(this@DiagnoseActivity) },
+                        connect = { port ->
+                            AppPrefs.setDebugPort(this@DiagnoseActivity, port.toString())
+                            AdbManager.connect(this@DiagnoseActivity, port)
+                        },
+                        succeeded = { it.exitCode == 0 && it.stdout.contains("connected", ignoreCase = true) }
+                    ).getOrThrow()
                 }
             }
 
@@ -327,7 +330,7 @@ class DiagnoseActivity : ComponentActivity() {
     private fun openSettingsAppInfo() {
         val launched = listOf(
             Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                .setData(Uri.parse("package:$packageName"))
+                .setData(Uri.parse("package:com.android.settings"))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             Intent(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),

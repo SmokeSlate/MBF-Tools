@@ -15,7 +15,7 @@ function Invoke-GradleBuild {
     try {
         $gradleArguments = @('--configuration-cache') +
             $GradleTask.Split(' ', [StringSplitOptions]::RemoveEmptyEntries)
-        & (Join-Path $ProjectDir 'gradlew.bat') @gradleArguments
+        & (Join-Path $ProjectDir 'gradlew.bat') @gradleArguments | Out-Host
         return ($LASTEXITCODE -eq 0)
     } finally {
         Pop-Location

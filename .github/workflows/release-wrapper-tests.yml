@@ -1,0 +1,14 @@
+name: Release wrapper tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  release-wrapper:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test release build failure guard
+        shell: pwsh
+        run: ./tests/build-release.Tests.ps1

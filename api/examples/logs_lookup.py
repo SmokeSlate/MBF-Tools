@@ -1,4 +1,4 @@
-"""
+r"""
 Drop-in bot script for shared MBF log lookups.
 
 Suggested /script set configuration:
@@ -14,11 +14,14 @@ This script uses the helper environment documented by the bot platform:
 - match
 """
 
+import asyncio
+
+
 LOOKUP_EMOJI = "🔎"
 SUCCESS_EMOJI = "✅"
 FAILURE_EMOJI = "❌"
 MESSAGE_LIMIT = 1800
-GAS_BASE_URL = "https://script.google.com/macros/s/AKfycbyS2gK65EMJxFi5_yzOZtBNpXRF-AOqfVIeo-aoMRNseZ62oSDuJkyBfWulY_dDoAs60Q/exec"
+LOGS_BASE_URL = "https://logs.mbf.tools"
 DIAGNOSE_URL = "https://wiki.sm0ke.org/fix?log="
 
 
@@ -95,7 +98,7 @@ async def _main():
     try:
         message_response = await _maybe_await(
             http_request(
-                f"{GAS_BASE_URL}?action=message&code={code}",
+                f"{LOGS_BASE_URL}/message/{code}",
                 timeout=15,
             )
         )
@@ -110,7 +113,7 @@ async def _main():
 
         summary_response = await _maybe_await(
             http_request(
-                f"{GAS_BASE_URL}?action=summary&code={code}&format=text",
+                f"{LOGS_BASE_URL}/summary/{code}?format=text",
                 timeout=15,
             )
         )

@@ -19,6 +19,8 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 class MainActivity : ComponentActivity() {
+    private var actionBusy = false
+
     private val worker: ExecutorService = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
     private val pollingRunnable =
@@ -169,8 +171,8 @@ class MainActivity : ComponentActivity() {
                             getString(R.string.status_not_connected)
                     )
                     recommendationText.text = getString(R.string.recommendation_connected)
-                    launchMbfButton.isEnabled = true
-                    deviceSettingButtons.forEach { it.isEnabled = true }
+                    launchMbfButton.isEnabled = SetupFlowPolicy.actionEnabled(actionBusy)
+                    deviceSettingButtons.forEach { it.isEnabled = SetupFlowPolicy.actionEnabled(actionBusy) }
                 } else {
                     updateStatusValue(
                             connectionStatusValue,
@@ -289,7 +291,7 @@ class MainActivity : ComponentActivity() {
             runOnUiThread {
                 setBusy(false)
                 if (port > 0) {
-                    autofillPairingPort(port)
+                    autofillPairingPort(port, force = true)
                     appendLog("Detected pairing port $port.")
                     toast(getString(R.string.toast_pairing_port_detected, port))
                 } else {
@@ -308,7 +310,7 @@ class MainActivity : ComponentActivity() {
             runOnUiThread {
                 setBusy(false)
                 if (port > 0) {
-                    autofillDebugPort(port)
+                    autofillDebugPort(port, force = true)
                     appendLog("Detected wireless debug port $port.")
                     toast(getString(R.string.toast_debug_port_detected, port))
                 } else {
@@ -331,6 +333,16 @@ class MainActivity : ComponentActivity() {
         setBusy(true)
         runAsync {
             val connectAttempt = connectWithRecoveredDebugPort(debugPort)
+            val connectionResult = connectAttempt.result.mapCatching { command ->
+                val deviceName = if (isSuccessfulConnect(command)) {
+                    val name = AdbManager.getAuthorizedDevices(this).firstOrNull()?.name
+                            ?: error("ADB connected but no authorized device was found.")
+                    runCatching { AdbManager.grantSelfPermissions(this, name) }
+                    name
+                } else null
+                command to deviceName
+            }
+
             runOnUiThread {
                 setBusy(false)
                 if (connectAttempt.redetectedPort != null) {
@@ -343,14 +355,10 @@ class MainActivity : ComponentActivity() {
                             }
                     )
                 }
-                connectAttempt.result
-                        .onSuccess { command ->
+                connectionResult
+                        .onSuccess { (command, deviceName) ->
                             if (isSuccessfulConnect(command)) {
-                                connectedDeviceName =
-                                        AdbManager.getAuthorizedDevices(this).firstOrNull()?.name
-                                runCatching {
-                                    AdbManager.grantSelfPermissions(this, connectedDeviceName)
-                                }
+                                connectedDeviceName = deviceName
                                 AppPrefs.setSetupComplete(this, true)
                                 appendLog(
                                         "Device connected${connectedDeviceName?.let { ": $it" } ?: "."}"
@@ -617,6 +625,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun setBusy(isBusy: Boolean) {
+        actionBusy = isBusy
         findViewById<Button>(R.id.btnPairDevice).isEnabled = !isBusy
         findViewById<Button>(R.id.btnDetectPairingPort).isEnabled = !isBusy
         findViewById<Button>(R.id.btnDetectDebugPort).isEnabled = !isBusy
@@ -856,10 +865,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun autofillDebugPort(port: Int, force: Boolean = false) {
-        if (port <= 0) {
-            return
-        }
-        if (!force && debugPortInput.text.toString().trim().toIntOrNull() != null) {
+        if (!SetupFlowPolicy.replacePort(debugPortInput.text.toString(), port, force)) {
             return
         }
         debugPortInput.setText(port.toString())
@@ -867,8 +873,8 @@ class MainActivity : ComponentActivity() {
         appendLog("Auto-filled wireless debug port $port.")
     }
 
-    private fun autofillPairingPort(port: Int) {
-        if (port <= 0 || pairingPortInput.text.toString().trim().toIntOrNull() != null) {
+    private fun autofillPairingPort(port: Int, force: Boolean = false) {
+        if (!SetupFlowPolicy.replacePort(pairingPortInput.text.toString(), port, force)) {
             return
         }
         pairingPortInput.setText(port.toString())

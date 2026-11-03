@@ -46,7 +46,8 @@ class WirelessDebugRequiredActivity : ComponentActivity() {
             }
         }
         guideButton.setOnClickListener {
-            startActivity(Intent(this, GuideActivity::class.java))
+            startActivity(Intent(this, GuideActivity::class.java)
+                    .putExtra(GuideActivity.EXTRA_REVISIT_SETUP, true))
         }
         advancedButton.setOnClickListener {
             startActivity(Intent(this, MainActivity::class.java))
