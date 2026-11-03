@@ -37,11 +37,8 @@ class BrowserActivity : ComponentActivity() {
     private lateinit var recommendedPackButton: Button
     private lateinit var titleView: TextView
     private val recommendedPackSession = RecommendedPackSession()
-    private var recommendedPackPageGeneration = 0
+    private val recommendedPackRefresh = RecommendedPackRefresh()
     private var recommendedPackDialog: AlertDialog? = null
-    private var refreshingRecommendedPack = false
-    private var toolbarRequestPending = false
-    private var lastRecommendedPackRefresh = -5_000L
     private var hasInjectedRecommendedPackObserver = false
     private var closeToHomeOnExit = false
     private var recommendedPackUiEnabled = false
@@ -182,8 +179,7 @@ class BrowserActivity : ComponentActivity() {
                     ) {
                         super.onPageStarted(view, url, favicon)
                         hasInjectedRecommendedPackObserver = false
-                        recommendedPackPageGeneration += 1
-                        toolbarRequestPending = false
+                        recommendedPackRefresh.pageChanged()
                         recommendedPackDialog?.dismiss()
                         AppLog.info(
                                 "Browser",
@@ -304,13 +300,8 @@ class BrowserActivity : ComponentActivity() {
 
     private fun refreshRecommendedPack(trigger: String, fromToolbar: Boolean = false) {
         if (!recommendedPackUiEnabled || recommendedPackDialog?.isShowing == true) return
-        toolbarRequestPending = toolbarRequestPending || fromToolbar
-        if (refreshingRecommendedPack) return
-        val now = SystemClock.elapsedRealtime()
-        if (!fromToolbar && now - lastRecommendedPackRefresh < 5_000L) return
-        refreshingRecommendedPack = true
-        lastRecommendedPackRefresh = now
-        val pageGeneration = recommendedPackPageGeneration
+        val request = recommendedPackRefresh.begin(fromToolbar, SystemClock.elapsedRealtime())
+                ?: return
         lifecycleScope.launch {
             try {
                 val version = withContext(Dispatchers.IO) {
@@ -324,12 +315,11 @@ class BrowserActivity : ComponentActivity() {
                                         this@BrowserActivity, gameId, device)
                             }
                 }
-                if (pageGeneration != recommendedPackPageGeneration) return@launch
+                if (!recommendedPackRefresh.isCurrent(request)) return@launch
                 recommendedPackSession.refresh(version) {
                     AppPrefs.hasPromptedRecommendedPack(this@BrowserActivity, it)
                 }
-                if (toolbarRequestPending) {
-                    toolbarRequestPending = false
+                if (recommendedPackRefresh.toolbarRequested) {
                     showRecommendedPackFromToolbar()
                 } else {
                     maybeShowRecommendedPackPrompt(trigger)
@@ -337,17 +327,20 @@ class BrowserActivity : ComponentActivity() {
             } catch (error: kotlinx.coroutines.CancellationException) {
                 throw error
             } catch (error: Exception) {
-                if (pageGeneration != recommendedPackPageGeneration) return@launch
+                if (!recommendedPackRefresh.isCurrent(request)) return@launch
                 // Never offer the launch-version pack after a failed refresh.
                 recommendedPackSession.refresh(null) { false }
                 AppLog.warn("Browser", "Recommended-pack version refresh failed: ${error.message}")
-                if (toolbarRequestPending) {
-                    toolbarRequestPending = false
+                if (recommendedPackRefresh.toolbarRequested) {
                     Toast.makeText(this@BrowserActivity, R.string.recommended_pack_unavailable,
                             Toast.LENGTH_LONG).show()
                 }
             } finally {
-                refreshingRecommendedPack = false
+                recommendedPackRefresh.finish(request)
+                // A toolbar click on a newer page must not be lost while an old lookup finishes.
+                if (recommendedPackRefresh.toolbarRequested) {
+                    refreshRecommendedPack("toolbar", fromToolbar = true)
+                }
             }
         }
     }
