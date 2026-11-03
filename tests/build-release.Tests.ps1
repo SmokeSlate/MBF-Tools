@@ -59,3 +59,7 @@ try {
     $env:LOCALAPPDATA = $originalLocalAppData
     Remove-Item $tempDir -Recurse -Force
 }
+
+# The deliberately failing native fixture leaves LASTEXITCODE=1. Only report
+# success after every assertion and cleanup above have completed.
+exit 0
