@@ -269,7 +269,7 @@ class GuideActivity : ComponentActivity() {
     }
 
     private fun computeInitialStep(): Int {
-        if (AppPrefs.isSetupComplete(this) && !isExplicitRevisit) return -1
+        if (SetupFlowPolicy.skipGuide(AppPrefs.isSetupComplete(this), isExplicitRevisit)) return -1
         return when {
             isDeveloperModeEnabled() && isWirelessDebuggingSettingEnabled() -> STEP_PAIR
             isDeveloperModeEnabled() -> STEP_WIRELESS_MENU
@@ -311,7 +311,7 @@ class GuideActivity : ComponentActivity() {
         } else {
             primaryButton.visibility = android.view.View.GONE
         }
-        backButton.isEnabled = !actionBusy && stepIndex > 0
+        backButton.isEnabled = SetupFlowPolicy.actionEnabled(actionBusy, stepIndex > 0)
         nextButton.text =
                 getString(
                         if (stepIndex == steps.lastIndex) R.string.guide_action_finish
@@ -366,7 +366,7 @@ class GuideActivity : ComponentActivity() {
     }
 
     private fun updateNextAvailability() {
-        nextButton.isEnabled = !actionBusy && isNextStepAvailable()
+        nextButton.isEnabled = SetupFlowPolicy.actionEnabled(actionBusy, isNextStepAvailable())
     }
 
     private fun refreshGuideState() {
@@ -722,10 +722,7 @@ class GuideActivity : ComponentActivity() {
     }
 
     private fun autofillDebugPort(port: Int, force: Boolean = false) {
-        if (port <= 0) {
-            return
-        }
-        if (!force && debugPortInput.text.toString().trim().toIntOrNull() != null) {
+        if (!SetupFlowPolicy.replacePort(debugPortInput.text.toString(), port, force)) {
             return
         }
         debugPortInput.setText(port.toString())
@@ -734,7 +731,7 @@ class GuideActivity : ComponentActivity() {
     }
 
     private fun autofillPairingPort(port: Int, force: Boolean = false) {
-        if (port <= 0 || (!force && pairingPortInput.text.toString().trim().toIntOrNull() != null)) {
+        if (!SetupFlowPolicy.replacePort(pairingPortInput.text.toString(), port, force)) {
             return
         }
         pairingPortInput.setText(port.toString())
@@ -925,7 +922,7 @@ class GuideActivity : ComponentActivity() {
     }
 
     private fun maybeLaunchCompletedSetup() {
-        if (isExplicitRevisit || actionBusy || hasAutoLaunchedCompletedSetup || connectedDeviceName == null) {
+        if (!SetupFlowPolicy.autoLaunchAllowed(isExplicitRevisit, actionBusy, hasAutoLaunchedCompletedSetup) || connectedDeviceName == null) {
             return
         }
         if (!isDeveloperModeEnabled() || !isWirelessDebuggingEnabled()) {

@@ -196,8 +196,8 @@ class HomeActivity : ComponentActivity() {
                                     else getString(R.string.status_not_detected)
                             )
                         }
-                launchMbfButton.isEnabled = !actionBusy && connected
-                shareDebugLogsButton.isEnabled = !actionBusy
+                launchMbfButton.isEnabled = SetupFlowPolicy.actionEnabled(actionBusy, connected)
+                shareDebugLogsButton.isEnabled = SetupFlowPolicy.actionEnabled(actionBusy)
             }
         }
     }
@@ -309,7 +309,7 @@ class HomeActivity : ComponentActivity() {
             val result = runCatching { AppUpdater.checkForUpdate(this) }
             runOnUiThread {
                 updateCheckInProgress = false
-                checkUpdatesButton.isEnabled = !actionBusy
+                checkUpdatesButton.isEnabled = SetupFlowPolicy.actionEnabled(actionBusy)
                 result
                         .onSuccess { check ->
                             if (check.updateAvailable) {

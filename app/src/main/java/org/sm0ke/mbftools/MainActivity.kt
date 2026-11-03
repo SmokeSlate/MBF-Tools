@@ -171,8 +171,8 @@ class MainActivity : ComponentActivity() {
                             getString(R.string.status_not_connected)
                     )
                     recommendationText.text = getString(R.string.recommendation_connected)
-                    launchMbfButton.isEnabled = !actionBusy
-                    deviceSettingButtons.forEach { it.isEnabled = !actionBusy }
+                    launchMbfButton.isEnabled = SetupFlowPolicy.actionEnabled(actionBusy)
+                    deviceSettingButtons.forEach { it.isEnabled = SetupFlowPolicy.actionEnabled(actionBusy) }
                 } else {
                     updateStatusValue(
                             connectionStatusValue,
@@ -865,10 +865,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun autofillDebugPort(port: Int, force: Boolean = false) {
-        if (port <= 0) {
-            return
-        }
-        if (!force && debugPortInput.text.toString().trim().toIntOrNull() != null) {
+        if (!SetupFlowPolicy.replacePort(debugPortInput.text.toString(), port, force)) {
             return
         }
         debugPortInput.setText(port.toString())
@@ -877,7 +874,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun autofillPairingPort(port: Int, force: Boolean = false) {
-        if (port <= 0 || (!force && pairingPortInput.text.toString().trim().toIntOrNull() != null)) {
+        if (!SetupFlowPolicy.replacePort(pairingPortInput.text.toString(), port, force)) {
             return
         }
         pairingPortInput.setText(port.toString())
