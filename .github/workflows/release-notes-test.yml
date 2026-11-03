@@ -4,10 +4,12 @@ on:
   push:
     paths:
       - docs/**
+      - scripts/test-beta-page.cjs
       - .github/workflows/release-notes-test.yml
   pull_request:
     paths:
       - docs/**
+      - scripts/test-beta-page.cjs
       - .github/workflows/release-notes-test.yml
 
 permissions:
@@ -21,4 +23,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test docs/tests/*.test.cjs
+      - run: node --test docs/tests/*.test.cjs scripts/test-beta-page.cjs

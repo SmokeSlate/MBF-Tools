@@ -29,6 +29,18 @@ jobs:
       - name: Build debug APK
         run: ./gradlew assembleDebug
 
+      - name: Build unsigned beta release APK
+        if: github.ref == 'refs/heads/beta'
+        run: ./gradlew assembleRelease
+
+      - name: Upload unsigned beta release for protected signing
+        if: github.ref == 'refs/heads/beta'
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta-release-unsigned-needs-signing
+          path: app/build/outputs/apk/release/app-release-unsigned.apk
+          if-no-files-found: error
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:

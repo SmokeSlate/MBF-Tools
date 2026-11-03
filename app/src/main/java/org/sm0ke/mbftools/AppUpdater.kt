@@ -12,6 +12,7 @@ import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 import org.json.JSONObject
+import org.json.JSONArray
 
 data class GitHubReleaseAsset(
         val name: String,
@@ -44,16 +45,18 @@ data class AppUpdateCheck(
 object AppUpdater {
     private const val LATEST_RELEASE_URL =
             "https://api.github.com/repos/SmokeSlate/MBF-Tools/releases/latest"
+    private const val RELEASES_URL =
+            "https://api.github.com/repos/SmokeSlate/MBF-Tools/releases?per_page=100"
     private const val CONNECT_TIMEOUT_MS = 15_000
     private const val READ_TIMEOUT_MS = 30_000
     private const val APK_MIME_TYPE = "application/vnd.android.package-archive"
     private const val USER_AGENT = "MBF-Tools-Updater"
 
     fun checkForUpdate(context: Context): AppUpdateCheck {
-        val release = fetchLatestRelease()
         val packageInfo = currentPackageInfo(context)
         val currentVersionName = packageInfo.versionName ?: ""
         val currentVersionCode = packageInfo.longVersionCodeCompat()
+        val release = fetchLatestRelease(isBetaVersion(currentVersionName))
         val comparison = compareVersionLabels(release.versionLabel, currentVersionName)
 
         return AppUpdateCheck(
@@ -100,9 +103,10 @@ object AppUpdater {
                     }
                 }
 
-        if (downloadedFile.length() <= 0L) {
+        if (downloadedFile.length() <= 0L ||
+                (asset.sizeBytes > 0L && downloadedFile.length() != asset.sizeBytes)) {
             downloadedFile.delete()
-            throw IllegalStateException("The downloaded update APK was empty.")
+            throw IllegalStateException("The downloaded update APK was incomplete. Please retry.")
         }
 
         return downloadedFile
@@ -120,26 +124,75 @@ object AppUpdater {
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 
+    internal fun isBetaVersion(label: String): Boolean =
+            Regex("""(?i)-beta(?:[.\d-]|$)""").containsMatchIn(label)
+
     internal fun compareVersionLabels(latestLabel: String, currentLabel: String): Int? {
         val latest = extractVersionParts(latestLabel)
         val current = extractVersionParts(currentLabel)
-        if (latest.isEmpty() || current.isEmpty()) {
-            return null
+        if (latest.isEmpty() || current.isEmpty()) return null
+        for (index in 0 until maxOf(latest.size, current.size)) {
+            val comparison = latest.getOrElse(index) { 0 }.compareTo(current.getOrElse(index) { 0 })
+            if (comparison != 0) return comparison
         }
-
-        val maxLength = maxOf(latest.size, current.size)
-        for (index in 0 until maxLength) {
-            val latestPart = latest.getOrElse(index) { 0 }
-            val currentPart = current.getOrElse(index) { 0 }
-            if (latestPart != currentPart) {
-                return latestPart.compareTo(currentPart)
+        // A final release is newer than its prereleases. Beta counters are numeric,
+        // so beta.10 correctly follows beta.9 rather than sorting lexically.
+        val latestPre = prereleaseParts(latestLabel)
+        val currentPre = prereleaseParts(currentLabel)
+        if (latestPre.isEmpty() && currentPre.isEmpty()) return 0
+        if (latestPre.isEmpty()) return 1
+        if (currentPre.isEmpty()) return -1
+        for (index in 0 until minOf(latestPre.size, currentPre.size)) {
+            val left = latestPre[index]
+            val right = currentPre[index]
+            val leftNumber = left.toLongOrNull()
+            val rightNumber = right.toLongOrNull()
+            val comparison = when {
+                leftNumber != null && rightNumber != null -> leftNumber.compareTo(rightNumber)
+                leftNumber != null -> -1
+                rightNumber != null -> 1
+                else -> left.compareTo(right, ignoreCase = true)
             }
+            if (comparison != 0) return comparison
         }
-        return 0
+        return latestPre.size.compareTo(currentPre.size)
     }
 
-    private fun fetchLatestRelease(): GitHubRelease {
-        val connection = openConnection(LATEST_RELEASE_URL, "application/vnd.github+json")
+    private fun prereleaseParts(label: String): List<String> =
+            Regex("""(?i)\d+(?:\.\d+){0,3}-(alpha|beta|rc)(?:[.-]?(\d+))?""")
+                    .find(label)?.let { match ->
+                        listOf(match.groupValues[1].lowercase()) +
+                                match.groupValues[2].takeIf { it.isNotEmpty() }.let {
+                                    if (it == null) emptyList() else listOf(it)
+                                }
+                    } ?: emptyList()
+
+    internal fun newestRelease(releases: List<GitHubRelease>): GitHubRelease? =
+            releases.filter { extractVersionParts(it.versionLabel).isNotEmpty() }
+                    .maxWithOrNull { a, b -> compareVersionLabels(a.versionLabel, b.versionLabel) ?: 0 }
+
+    private fun fetchLatestRelease(beta: Boolean): GitHubRelease {
+        if (!beta) return parseRelease(JSONObject(fetchReleaseJson(LATEST_RELEASE_URL)))
+        val releases = mutableListOf<GitHubRelease>()
+        var page = 1
+        do {
+            val json = JSONArray(fetchReleaseJson("$RELEASES_URL&page=$page"))
+            for (index in 0 until json.length()) {
+                val release = json.optJSONObject(index) ?: continue
+                if (release.optBoolean("draft") || !release.optBoolean("prerelease") ||
+                        !isBetaVersion(release.optString("tag_name"))) continue
+                // A draft/unfinished publication without an APK must never mask
+                // the last complete beta, or offer a debug-signed APK.
+                runCatching { parseRelease(release) }.getOrNull()?.let { releases.add(it) }
+            }
+            page++
+        } while (json.length() == 100)
+        return newestRelease(releases)
+                ?: throw IllegalStateException("No published beta APK is available yet. Visit https://mbf.tools/beta.")
+    }
+
+    private fun fetchReleaseJson(url: String): String {
+        val connection = openConnection(url, "application/vnd.github+json")
         return try {
             val body =
                     BufferedReader(
@@ -160,7 +213,7 @@ object AppUpdater {
                 )
             }
 
-            parseRelease(JSONObject(body))
+            body
         } finally {
             connection.disconnect()
         }
@@ -188,6 +241,8 @@ object AppUpdater {
                             val name = asset.optString("name")
                             val downloadUrl = asset.optString("browser_download_url")
                             if (name.endsWith(".apk", ignoreCase = true) &&
+                                            asset.optString("state") == "uploaded" &&
+                                            asset.optLong("size", 0L) > 0L &&
                                             downloadUrl.isNotBlank()
                             ) {
                                 GitHubReleaseAsset(
@@ -204,8 +259,12 @@ object AppUpdater {
             throw IllegalStateException("The latest GitHub release does not include an APK asset.")
         }
 
-        val preferredAssets = apkAssets.filterNot { it.name.contains("debug", ignoreCase = true) }
-                .ifEmpty { apkAssets }
+        val preferredAssets = apkAssets.filterNot {
+            it.name.contains("debug", ignoreCase = true) || it.name.contains("unsigned", ignoreCase = true)
+        }
+        if (preferredAssets.isEmpty()) {
+            throw IllegalStateException("The release only contains debug or unsigned APKs, which cannot update a signed installation.")
+        }
         return preferredAssets.maxByOrNull { apkAssetScore(it.name) } ?: preferredAssets.first()
     }
 
