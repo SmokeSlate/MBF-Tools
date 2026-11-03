@@ -49,4 +49,13 @@ class DiagnosticLogSelectionTest {
         assertTrue(lines.any { it.contains("session-9.log") })
         assertEquals("/sdcard/logs/session-9.log line 60", lines.last())
     }
+    @Test
+    fun quotesStatFormatAndUntrustedFilenamesForAdbShell() {
+        assertEquals("'%Y %n'", DiagnosticLogSelection.shellQuote("%Y %n"))
+        assertEquals("'/sdcard/session one.log'",
+                DiagnosticLogSelection.shellQuote("/sdcard/session one.log"))
+        assertEquals("'session'\\''s $(false).log'",
+                DiagnosticLogSelection.shellQuote("session's $(false).log"))
+    }
+
 }
