@@ -48,7 +48,10 @@ test('admin rejects tampered sessions', async () => {
   const env = testEnvironment(password);
   const loginResponse = await worker.fetch(loginRequest(password), env);
   const sessionCookie = (loginResponse.headers.get('set-cookie') || '').split(';', 1)[0];
-  const tamperedCookie = `${sessionCookie.slice(0, -1)}${sessionCookie.endsWith('a') ? 'b' : 'a'}`;
+  const signatureStart = sessionCookie.lastIndexOf('.') + 1;
+  const signature = Buffer.from(sessionCookie.slice(signatureStart), 'base64url');
+  signature[0] ^= 1; // Change a significant byte, never unused base64 padding bits.
+  const tamperedCookie = sessionCookie.slice(0, signatureStart) + signature.toString('base64url');
 
   const response = await worker.fetch(
     new Request('https://logs.mbf.tools/admin', { headers: { Cookie: tamperedCookie } }),

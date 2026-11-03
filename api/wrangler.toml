@@ -36,3 +36,12 @@ invocation_logs = true
 [observability.traces]
 enabled = false
 head_sampling_rate = 1
+
+# Atomic follow-up limits; deployed only with an explicitly authorized release.
+[[durable_objects.bindings]]
+name = "FOLLOWUP_LIMITER"
+class_name = "FollowupLimiter"
+
+[[migrations]]
+tag = "v1-followup-limiter"
+new_sqlite_classes = ["FollowupLimiter"]
