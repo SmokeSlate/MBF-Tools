@@ -23,6 +23,8 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 class HomeActivity : ComponentActivity() {
+    private var actionBusy = false
+
     private val worker: ExecutorService = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
     private val pollingRunnable =
@@ -81,7 +83,8 @@ class HomeActivity : ComponentActivity() {
         openFixButton.setOnClickListener { openUrl(FIX_FORM_URL) }
         openFaqButton.setOnClickListener { openUrl(FAQ_PAGE_URL) }
         openGuideButton.setOnClickListener {
-            startActivity(Intent(this, GuideActivity::class.java))
+            startActivity(Intent(this, GuideActivity::class.java)
+                    .putExtra(GuideActivity.EXTRA_REVISIT_SETUP, true))
         }
         openAdvancedButton.setOnClickListener {
             startActivity(Intent(this, MainActivity::class.java))
@@ -193,8 +196,8 @@ class HomeActivity : ComponentActivity() {
                                     else getString(R.string.status_not_detected)
                             )
                         }
-                launchMbfButton.isEnabled = connected
-                shareDebugLogsButton.isEnabled = true
+                launchMbfButton.isEnabled = !actionBusy && connected
+                shareDebugLogsButton.isEnabled = !actionBusy
             }
         }
     }
@@ -306,7 +309,7 @@ class HomeActivity : ComponentActivity() {
             val result = runCatching { AppUpdater.checkForUpdate(this) }
             runOnUiThread {
                 updateCheckInProgress = false
-                checkUpdatesButton.isEnabled = true
+                checkUpdatesButton.isEnabled = !actionBusy
                 result
                         .onSuccess { check ->
                             if (check.updateAvailable) {
@@ -608,6 +611,7 @@ class HomeActivity : ComponentActivity() {
     }
 
     private fun setActionButtonsEnabled(enabled: Boolean) {
+        actionBusy = !enabled
         launchMbfButton.isEnabled = enabled && connectedDeviceName != null
         openFixButton.isEnabled = enabled
         openFaqButton.isEnabled = enabled
