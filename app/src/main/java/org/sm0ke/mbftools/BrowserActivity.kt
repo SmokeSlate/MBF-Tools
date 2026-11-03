@@ -7,6 +7,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
+import android.os.SystemClock
 import android.os.Looper
 import android.util.Base64
 import android.webkit.JavascriptInterface
@@ -23,6 +24,10 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.FileProvider
 import androidx.core.view.isVisible
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import java.io.File
 
@@ -31,13 +36,15 @@ class BrowserActivity : ComponentActivity() {
     private lateinit var backButton: Button
     private lateinit var recommendedPackButton: Button
     private lateinit var titleView: TextView
-    private var recommendedPack: RecommendedModPack? = null
-    private var beatSaberVersionTag: String? = null
+    private val recommendedPackSession = RecommendedPackSession()
+    private var recommendedPackPageGeneration = 0
+    private var recommendedPackDialog: AlertDialog? = null
+    private var refreshingRecommendedPack = false
+    private var toolbarRequestPending = false
+    private var lastRecommendedPackRefresh = -5_000L
     private var hasInjectedRecommendedPackObserver = false
-    private var hasHandledRecommendedPackPrompt = false
     private var closeToHomeOnExit = false
     private var recommendedPackUiEnabled = false
-    private var shouldAutoPromptRecommendedPack = false
     private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
     private var pendingRecommendedPackUpload: PendingRecommendedPackUpload? = null
     private var recommendedPackInstallFingerprint: String? = null
@@ -60,18 +67,14 @@ class BrowserActivity : ComponentActivity() {
         recommendedPackButton = findViewById(R.id.btnBrowserRecommendedPack)
         titleView = findViewById(R.id.txtBrowserTitle)
         closeToHomeOnExit = intent.getBooleanExtra(EXTRA_CLOSE_TO_HOME_ON_EXIT, false)
-        beatSaberVersionTag = intent.getStringExtra(EXTRA_BEAT_SABER_VERSION_TAG)
         recommendedPackUiEnabled =
                 intent.getBooleanExtra(EXTRA_ENABLE_RECOMMENDED_MOD_PACK_PROMPT, false)
-        recommendedPack =
-                beatSaberVersionTag?.let { versionTag ->
-                    RecommendedModPacks.forVersion(versionTag)
-                }
-        val alreadyPrompted =
-                recommendedPack?.let { AppPrefs.hasPromptedRecommendedPack(this, it.fingerprint) }
-                        ?: false
-        shouldAutoPromptRecommendedPack =
-                recommendedPackUiEnabled && recommendedPack != null && !alreadyPrompted
+        recommendedPackSession.refresh(intent.getStringExtra(EXTRA_BEAT_SABER_VERSION_TAG)) {
+            AppPrefs.hasPromptedRecommendedPack(this, it)
+        }
+        val alreadyPrompted = recommendedPackSession.pack?.let {
+            AppPrefs.hasPromptedRecommendedPack(this, it.fingerprint)
+        } ?: false
         logRecommendedPackSetup(alreadyPrompted)
 
         webView.settings.apply {
@@ -86,7 +89,7 @@ class BrowserActivity : ComponentActivity() {
             setSupportZoom(false)
             userAgentString = "MbfLauncher/1.0"
         }
-        if (recommendedPackUiEnabled || recommendedPack != null) {
+        if (recommendedPackUiEnabled || recommendedPackSession.pack != null) {
             webView.addJavascriptInterface(RecommendedPackBridge(), JS_BRIDGE_NAME)
             AppLog.info("Browser", "Registered MBF recommended-pack JavaScript bridge.")
         }
@@ -179,6 +182,9 @@ class BrowserActivity : ComponentActivity() {
                     ) {
                         super.onPageStarted(view, url, favicon)
                         hasInjectedRecommendedPackObserver = false
+                        recommendedPackPageGeneration += 1
+                        toolbarRequestPending = false
+                        recommendedPackDialog?.dismiss()
                         AppLog.info(
                                 "Browser",
                                 "Page started loading: ${url ?: "<unknown>"}"
@@ -221,6 +227,7 @@ class BrowserActivity : ComponentActivity() {
         cancelRecommendedPackUploadRetry()
         fileChooserCallback?.onReceiveValue(null)
         fileChooserCallback = null
+        recommendedPackDialog?.dismiss()
         webView.destroy()
         super.onDestroy()
     }
@@ -261,7 +268,7 @@ class BrowserActivity : ComponentActivity() {
     }
 
     private fun logRecommendedPackSetup(alreadyPrompted: Boolean) {
-        val pack = recommendedPack
+        val pack = recommendedPackSession.pack
         if (!recommendedPackUiEnabled) {
             AppLog.info("Browser", "Recommended-pack UI is disabled for this browser session.")
             return
@@ -269,13 +276,13 @@ class BrowserActivity : ComponentActivity() {
         if (pack == null) {
             AppLog.warn(
                     "Browser",
-                    "Recommended-pack UI enabled, but no pack is mapped for versionTag=${beatSaberVersionTag ?: "<none>"}. Supported versions=${RecommendedModPacks.supportedVersionTags().sorted().joinToString()}"
+                    "Recommended-pack UI enabled, but no pack is mapped for versionTag=${recommendedPackSession.versionTag ?: "<none>"}. Supported versions=${RecommendedModPacks.supportedVersionTags().sorted().joinToString()}"
             )
             return
         }
         AppLog.info(
                 "Browser",
-                "Recommended-pack setup: versionTag=${pack.versionTag}, title=${pack.title}, modCount=${pack.mods.size}, fingerprint=${pack.fingerprint}, alreadyPrompted=$alreadyPrompted, autoPrompt=$shouldAutoPromptRecommendedPack"
+                "Recommended-pack setup: versionTag=${pack.versionTag}, title=${pack.title}, modCount=${pack.mods.size}, fingerprint=${pack.fingerprint}, alreadyPrompted=$alreadyPrompted, autoPrompt=${recommendedPackSession.shouldAutoPrompt}"
         )
     }
 
@@ -284,52 +291,91 @@ class BrowserActivity : ComponentActivity() {
             AppLog.info("Browser", "Recommended-pack observer already injected for this page.")
             return
         }
-        if (!shouldAutoPromptRecommendedPack) {
-            AppLog.info(
-                    "Browser",
-                    "Skipping recommended-pack observer injection. autoPrompt=$shouldAutoPromptRecommendedPack versionTag=${beatSaberVersionTag ?: "<none>"}"
-            )
-            return
-        }
-        if (recommendedPack == null) {
-            AppLog.warn(
-                    "Browser",
-                    "Skipping recommended-pack observer injection because no pack was resolved for versionTag=${beatSaberVersionTag ?: "<none>"}"
-            )
-            return
-        }
+        // Observe readiness even when the launch version has no mapped pack.
+        // MBF may install a supported version during its downgrade flow.
+        if (!recommendedPackUiEnabled) return
         hasInjectedRecommendedPackObserver = true
         AppLog.info(
                 "Browser",
-                "Injecting recommended-pack observer for versionTag=${recommendedPack?.versionTag}"
+                "Injecting recommended-pack observer for versionTag=${recommendedPackSession.pack?.versionTag}"
         )
         webView.evaluateJavascript(RECOMMENDED_PACK_OBSERVER_SCRIPT, null)
     }
 
+    private fun refreshRecommendedPack(trigger: String, fromToolbar: Boolean = false) {
+        if (!recommendedPackUiEnabled || recommendedPackDialog?.isShowing == true) return
+        toolbarRequestPending = toolbarRequestPending || fromToolbar
+        if (refreshingRecommendedPack) return
+        val now = SystemClock.elapsedRealtime()
+        if (!fromToolbar && now - lastRecommendedPackRefresh < 5_000L) return
+        refreshingRecommendedPack = true
+        lastRecommendedPackRefresh = now
+        val pageGeneration = recommendedPackPageGeneration
+        lifecycleScope.launch {
+            try {
+                val version = withContext(Dispatchers.IO) {
+                    // Resolve locally first; only discover an ADB device if needed.
+                    val gameId = AppPrefs.getGameId(this@BrowserActivity)
+                    BeatSaberVersionResolver.resolveVersionTag(this@BrowserActivity, gameId)
+                            ?: run {
+                                val device = AdbManager.getAuthorizedDevices(this@BrowserActivity)
+                                        .firstOrNull()?.name
+                                BeatSaberVersionResolver.resolveVersionTag(
+                                        this@BrowserActivity, gameId, device)
+                            }
+                }
+                if (pageGeneration != recommendedPackPageGeneration) return@launch
+                recommendedPackSession.refresh(version) {
+                    AppPrefs.hasPromptedRecommendedPack(this@BrowserActivity, it)
+                }
+                if (toolbarRequestPending) {
+                    toolbarRequestPending = false
+                    showRecommendedPackFromToolbar()
+                } else {
+                    maybeShowRecommendedPackPrompt(trigger)
+                }
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                if (pageGeneration != recommendedPackPageGeneration) return@launch
+                // Never offer the launch-version pack after a failed refresh.
+                recommendedPackSession.refresh(null) { false }
+                AppLog.warn("Browser", "Recommended-pack version refresh failed: ${error.message}")
+                if (toolbarRequestPending) {
+                    toolbarRequestPending = false
+                    Toast.makeText(this@BrowserActivity, R.string.recommended_pack_unavailable,
+                            Toast.LENGTH_LONG).show()
+                }
+            } finally {
+                refreshingRecommendedPack = false
+            }
+        }
+    }
+
     private fun maybeShowRecommendedPackPrompt(trigger: String) {
-        val pack = recommendedPack
+        val pack = recommendedPackSession.pack
         if (pack == null) {
             AppLog.warn(
                     "Browser",
-                    "Recommended-pack prompt skipped ($trigger) because no pack is mapped for versionTag=${beatSaberVersionTag ?: "<none>"}"
+                    "Recommended-pack prompt skipped ($trigger) because no pack is mapped for versionTag=${recommendedPackSession.versionTag ?: "<none>"}"
             )
             return
         }
-        if (!shouldAutoPromptRecommendedPack) {
+        if (!recommendedPackSession.shouldAutoPrompt) {
             AppLog.info(
                     "Browser",
-                    "Recommended-pack prompt skipped ($trigger). autoPrompt=$shouldAutoPromptRecommendedPack fingerprint=${pack.fingerprint}"
+                    "Recommended-pack prompt skipped ($trigger). autoPrompt=${recommendedPackSession.shouldAutoPrompt} fingerprint=${pack.fingerprint}"
             )
             return
         }
-        if (hasHandledRecommendedPackPrompt) {
+        if (recommendedPackSession.handled) {
             AppLog.info(
                     "Browser",
                     "Recommended-pack prompt already handled for fingerprint=${pack.fingerprint}; trigger=$trigger"
             )
             return
         }
-        hasHandledRecommendedPackPrompt = true
+        recommendedPackSession.handled = true
         showRecommendedPackPrompt(pack, "automatic/$trigger")
     }
 
@@ -345,7 +391,7 @@ class BrowserActivity : ComponentActivity() {
                             it.displayName
                         }
                 )
-        AlertDialog.Builder(this)
+        recommendedPackDialog = AlertDialog.Builder(this)
                 .setTitle(getString(R.string.recommended_pack_prompt_title))
                 .setMessage(message)
                 .setNegativeButton(R.string.recommended_pack_prompt_skip) { _, _ ->
@@ -360,18 +406,22 @@ class BrowserActivity : ComponentActivity() {
                             "Browser",
                             "User accepted recommended-pack install from $source for fingerprint=${pack.fingerprint}"
                     )
-                    shouldAutoPromptRecommendedPack = false
+                    recommendedPackSession.shouldAutoPrompt = false
                     installRecommendedPack(pack)
                 }
                 .show()
     }
 
     private fun openRecommendedPackFromToolbar() {
-        val pack = recommendedPack
+        refreshRecommendedPack("toolbar", fromToolbar = true)
+    }
+
+    private fun showRecommendedPackFromToolbar() {
+        val pack = recommendedPackSession.pack
         if (pack == null) {
             AppLog.warn(
                     "Browser",
-                    "Toolbar recommended-pack button pressed, but no pack is mapped for versionTag=${beatSaberVersionTag ?: "<none>"}"
+                    "Toolbar recommended-pack button pressed, but no pack is mapped for versionTag=${recommendedPackSession.versionTag ?: "<none>"}"
             )
             Toast.makeText(this, R.string.recommended_pack_unavailable, Toast.LENGTH_LONG).show()
             return
@@ -380,8 +430,8 @@ class BrowserActivity : ComponentActivity() {
                 "Browser",
                 "Toolbar recommended-pack button pressed for versionTag=${pack.versionTag} fingerprint=${pack.fingerprint}"
         )
-        hasHandledRecommendedPackPrompt = true
-        shouldAutoPromptRecommendedPack = false
+        recommendedPackSession.handled = true
+        recommendedPackSession.shouldAutoPrompt = false
         showRecommendedPackPrompt(pack, "toolbar")
     }
 
@@ -741,7 +791,7 @@ class BrowserActivity : ComponentActivity() {
             if (state != RECOMMENDED_PACK_READY_STATE) {
                 return
             }
-            runOnUiThread { maybeShowRecommendedPackPrompt("bridge") }
+            runOnUiThread { refreshRecommendedPack("bridge") }
         }
 
         @JavascriptInterface
