@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MBF Tools Beta</title>
+<meta name="description" content="Download the MBF Tools beta for Meta Quest and test upcoming fixes.">
+<link rel="icon" href="/assets/logo.png"><link rel="canonical" href="https://mbf.tools/beta/">
+<style>
+:root{color-scheme:dark}body{margin:0;background:linear-gradient(150deg,#08111f,#13335b);color:#f6fbff;font:17px/1.6 system-ui,sans-serif;min-height:100vh}main{max-width:700px;margin:auto;padding:60px 24px}img{width:100px;border-radius:22px}h1{line-height:1.2}a{color:#7bc6ff}.card{background:#0f1b2d;border:1px solid #345575;border-radius:20px;padding:28px;margin:24px 0}.button{display:inline-block;padding:12px 22px;border-radius:12px;background:#4cb2ff;color:#08111f;text-decoration:none;font-weight:700}.muted{color:#bcd1e8}[hidden]{display:none!important}pre{white-space:pre-wrap;font:inherit}a:focus-visible{outline:3px solid white;outline-offset:4px}
+</style>
+</head>
+<body><main>
+<a href="/"><img src="/assets/logo.png" alt="MBF Tools home"></a>
+<p class="muted">Preview channel · Meta Quest</p><h1>MBF Tools Beta</h1>
+<p>Try the combined upcoming fixes before they reach the stable release. Beta builds may contain bugs.</p>
+<section class="card" aria-labelledby="download-heading">
+<h2 id="download-heading">Download the beta</h2>
+<p id="status" role="status">Checking for the latest published beta…</p>
+<a class="button" id="download" hidden>Download beta APK</a>
+<p><a id="notes" href="https://github.com/SmokeSlate/MBF-Tools/releases">View releases and release notes</a></p>
+</section>
+<h2>Installing and updating</h2>
+<p>Install the APK on your Quest using the package installer. A properly signed beta updates your existing MBF Tools installation and keeps its data. Do not uninstall if Android rejects the update; report the error instead.</p>
+<p>Beta builds use the beta update channel. Use the in-app update check to get newer beta releases. Stable installations stay on the stable channel.</p>
+<p>Returning to an older stable version may require uninstalling and losing app data. Wait for a newer stable release if you want to avoid that.</p>
+<p><a href="/">Stable download</a> · <a href="https://github.com/SmokeSlate/MBF-Tools/issues">Report a problem</a></p>
+</main>
+<script>
+const repository = 'https://api.github.com/repos/SmokeSlate/MBF-Tools/releases';
+function betaVersion(tag) {
+  const match = /^v?(\d+)\.(\d+)\.(\d+)-beta\.(\d+)$/.exec(tag || '');
+  return match ? match.slice(1).map(Number) : null;
+}
+function compareVersions(a,b) { for(let i=0;i<4;i++){if(a[i]!==b[i])return a[i]-b[i];}return 0; }
+async function loadBeta() {
+  const candidates = [];
+  for(let page=1;;page++) {
+    const response = await fetch(`${repository}?per_page=100&page=${page}`, {headers:{Accept:'application/vnd.github+json'}});
+    if(!response.ok) throw new Error('Release lookup unavailable');
+    const releases = await response.json();
+    if(!Array.isArray(releases)) throw new Error('Invalid release response');
+    for(const release of releases) {
+      const version = betaVersion(release.tag_name);
+      if(release.draft || !release.prerelease || !version) continue;
+      const assets = (release.assets || []).filter(asset => /\.apk$/i.test(asset.name) && !/debug|unsigned/i.test(asset.name) && asset.state === 'uploaded' && asset.size > 0 && typeof asset.browser_download_url === 'string' && asset.browser_download_url.startsWith('https://github.com/SmokeSlate/MBF-Tools/releases/download/'));
+      assets.sort((a,b) => Number(/mbf/i.test(b.name))-Number(/mbf/i.test(a.name)));
+      if(assets.length) candidates.push({release,version,asset:assets[0]});
+    }
+    if(releases.length<100) break;
+  }
+  candidates.sort((a,b) => compareVersions(b.version,a.version));
+  if(!candidates.length) {document.getElementById('status').textContent='No signed beta has been published yet. Please check back soon.';return;}
+  const {release,asset} = candidates[0];
+  document.getElementById('status').textContent=`${release.tag_name} · ${(asset.size/1024/1024).toFixed(1)} MB`;
+  const download=document.getElementById('download');download.href=asset.browser_download_url;download.hidden=false;
+  document.getElementById('notes').href=`https://github.com/SmokeSlate/MBF-Tools/releases/tag/${encodeURIComponent(release.tag_name)}`;
+}
+loadBeta().catch(() => {document.getElementById('status').textContent='Could not check for a beta right now. Open the releases page below to download it directly.';});
+</script>
+</body></html>
