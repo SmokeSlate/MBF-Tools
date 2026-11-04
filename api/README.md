@@ -110,3 +110,21 @@ credentials to the payload.
 
 `src/Code.js` is the retired Google Apps Script implementation kept only for
 reference. It is not deployed and must not be used for new changes.
+
+
+## Follow-up validation and rate limits
+
+Follow-up bodies must be JSON objects with a nonblank `question` string of at
+most 4,000 characters. Optional `history` contains at most ten messages, each
+with a `user` or `assistant` role and string content of at most 4,000 characters.
+Only those two fields are forwarded. Invalid requests return 400 before storage
+access or quota consumption.
+
+`FOLLOWUP_LIMITER` is a SQLite-backed Durable Object namespace, with one object
+per client IP. A storage transaction admits at most ten follow-ups during a
+60-second window; exhausted windows return 429 with `Retry-After`. Unavailable
+limiter storage or a missing binding fails closed with 503, without calling AI.
+An alarm removes expired counter state. The binding and initial migration are
+included in `wrangler.toml` and must accompany the next authorized deployment.
+No existing diagnostic KV records need migration. Local tests and dry-runs do
+not deploy this infrastructure.
