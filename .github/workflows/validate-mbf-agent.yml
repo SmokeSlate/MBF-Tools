@@ -1,0 +1,125 @@
+name: Validate pinned MBF agent
+on:
+  push:
+    branches: [fix/reproducible-mbf-agent]
+    paths: [.github/workflows/validate-mbf-agent.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CARGO_TERM_COLOR: always
+      SOURCE_DATE_EPOCH: '1792551600'
+    steps:
+      - name: Check out official agent source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Lauriethefish/ModsBeforeFriday
+          ref: 8563ba7cdf6a237201030afbaaaa73615939220f
+          path: agent-source
+          persist-credentials: false
+      - name: Check out bridge-aware frontend
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: DanTheMan827/ModsBeforeFriday
+          ref: a9722024aef1552986d00d6f89e454cb049211ee
+          path: frontend
+          submodules: recursive
+          persist-credentials: false
+      - name: Set up exact upstream Rust version
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659
+        with:
+          toolchain: '1.99.1'
+          target: aarch64-linux-android
+          cache: false
+          rustflags: ''
+      - name: Install and verify NDK r27c
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 https://dl.google.com/android/repository/android-ndk-r27c-linux.zip -o ndk.zip
+          # Official android/ndk release checksum, not a newly trusted agent hash.
+          echo '090e8083a715fdb1a3e402d0763c388abb03fb4e  ndk.zip' | sha1sum -c -
+          test "$(wc -c < ndk.zip)" -eq 663987688
+          unzip -q ndk.zip -d "$RUNNER_TEMP"
+          NDK_BIN="$RUNNER_TEMP/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          echo "CC_aarch64_linux_android=$NDK_BIN/aarch64-linux-android31-clang" >> "$GITHUB_ENV"
+          echo "AR_aarch64_linux_android=$NDK_BIN/llvm-ar" >> "$GITHUB_ENV"
+          echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$NDK_BIN/aarch64-linux-android31-clang" >> "$GITHUB_ENV"
+      - name: Fetch and verify pinned embedded libraries
+        working-directory: agent-source
+        run: |
+          set -euo pipefail
+          mkdir -p mbf-agent/libs
+          curl --fail --location --retry 3 https://github.com/sc2ad/LibMainLoader/releases/download/v0.2.0/libmain.so -o mbf-agent/libs/libmain.so
+          curl --fail --location --retry 3 https://github.com/sc2ad/scotland2/releases/download/v0.1.7/libsl2.so -o mbf-agent/libs/libsl2.so
+          curl --fail --location --retry 3 https://raw.githubusercontent.com/kodenamekrak/JusticeForQuest/e8afabbb6d4dab8e339ea2fbdc1b14e6ad955435/third_party/libovrplatformloader.so -o mbf-agent/libs/libovrplatformloader.so
+          cat > embedded.sha256 <<'HASHES'
+          5e3ef9701b89ae911113b0adad8f5d5b58f644867cdcd18f8a51ac807df60119  mbf-agent/libs/libmain.so
+          3c34627ede42c9281a0d28147bc222424c5dc451263a14c7a9ab6a88331890fe  mbf-agent/libs/libsl2.so
+          90bcb3f143c0cdfc9d26922bf5f06579551c82bfe43c2bf0c423eb6465226300  mbf-agent/libs/libovrplatformloader.so
+          HASHES
+          sha256sum -c embedded.sha256
+          cargo fetch --locked
+      - name: Test agent workspace
+        working-directory: agent-source
+        run: cargo test --workspace --locked --offline
+      - name: Build twice from clean outputs and compare
+        working-directory: agent-source
+        run: |
+          set -euo pipefail
+          mkdir -p ../result
+          cargo build --manifest-path mbf-agent/Cargo.toml --target aarch64-linux-android --release --locked --offline
+          cp target/aarch64-linux-android/release/mbf-agent ../result/mbf-agent
+          cargo clean --target aarch64-linux-android --release
+          cargo build --manifest-path mbf-agent/Cargo.toml --target aarch64-linux-android --release --locked --offline
+          cmp ../result/mbf-agent target/aarch64-linux-android/release/mbf-agent
+          sha256sum -c embedded.sha256
+          cd ../result
+          sha256sum mbf-agent > mbf-agent.sha256
+          sha1sum mbf-agent > mbf-agent.sha1
+          wc -c mbf-agent > mbf-agent.size
+          file mbf-agent
+          cat mbf-agent.sha256 mbf-agent.sha1 mbf-agent.size
+      - name: Generate manifest from verified build
+        run: |
+          python3 - <<'PY'
+          import hashlib, pathlib
+          data = pathlib.Path("result/mbf-agent").read_bytes()
+          manifest = (
+              "// Generated from pinned source build; SHA-1 is required by the ADB protocol.\n"
+              f"export const AGENT_LENGTH: number = {len(data)};\n"
+              f'export const AGENT_SHA1: string = "{hashlib.sha1(data).hexdigest().upper()}";\n'
+          )
+          pathlib.Path("result/agent_manifest.ts").write_text(manifest)
+          pathlib.Path("frontend/mbf-site/src/agent_manifest.ts").write_text(manifest)
+          pathlib.Path("frontend/mbf-site/public/mbf-agent").write_bytes(data)
+          PY
+      - name: Build unchanged bridge-aware frontend
+        working-directory: frontend
+        run: |
+          npm install --global pnpm@11.19.0
+          pnpm install --frozen-lockfile --config.dangerouslyAllowAllBuilds=true
+          pnpm -r --filter 'mbf-site...' build
+          cmp mbf-site/dist/mbf-agent ../result/mbf-agent
+      - name: Record build provenance
+        run: |
+          {
+            echo 'Agent source: Lauriethefish/ModsBeforeFriday@8563ba7cdf6a237201030afbaaaa73615939220f'
+            echo 'Frontend source: DanTheMan827/ModsBeforeFriday@a9722024aef1552986d00d6f89e454cb049211ee'
+            echo 'NDK: r27c, Android API 31'
+            echo "Validation workflow commit: $GITHUB_SHA"
+            rustc --version --verbose
+            cargo --version
+            sha256sum agent-source/Cargo.lock agent-source/mbf-agent/libs/*
+          } > result/BUILD-PROVENANCE.txt
+          cp agent-source/embedded.sha256 result/
+      - name: Upload validation output only
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: verified-mbf-agent
+          path: result/
+          retention-days: 30
+          if-no-files-found: error
