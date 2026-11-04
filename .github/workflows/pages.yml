@@ -25,8 +25,19 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Check out MBF Tools
+      # A manual run from beta must not publish beta changes over the stable site.
+      - name: Check out stable MBF Tools
         uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Check out beta download page
+        uses: actions/checkout@v4
+        with:
+          ref: beta
+          path: beta-source
+          sparse-checkout: docs/beta
+          sparse-checkout-cone-mode: false
 
       - name: Check out bridge-aware MBF
         uses: actions/checkout@v4
@@ -61,6 +72,9 @@ jobs:
         run: |
           mkdir -p site/mbf
           cp -R docs/. site/
+          test -f beta-source/docs/beta/index.html
+          mkdir -p site/beta
+          cp -R beta-source/docs/beta/. site/beta/
           cp -R mbf-source/mbf-site/dist/. site/mbf/
 
       - name: Upload Pages artifact
