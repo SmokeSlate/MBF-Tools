@@ -7,29 +7,31 @@ on:
       - docs/**
       - web/**
       - .github/workflows/pages.yml
+  pull_request:
+    paths:
+      - docs/**
+      - web/**
+      - .github/workflows/pages.yml
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      # A manual run from beta must not publish beta changes over the stable site.
+      # PRs validate their proposed site; manual beta runs retain the stable root.
       - name: Check out stable MBF Tools
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.event_name == 'pull_request' && github.sha || 'main' }}
+          persist-credentials: false
 
       - name: Check out beta download page
         uses: actions/checkout@v4
@@ -55,18 +57,74 @@ jobs:
       - name: Install pnpm
         run: npm install --global pnpm@11.19.0
 
-      - name: Download and verify fixed agent
+      - name: Check out official agent source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Lauriethefish/ModsBeforeFriday
+          ref: 8563ba7cdf6a237201030afbaaaa73615939220f
+          path: agent-source
+          persist-credentials: false
+      - name: Set up exact upstream Rust version
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659
+        with:
+          toolchain: '1.99.1'
+          target: aarch64-linux-android
+          cache: false
+          rustflags: ''
+      - name: Install and verify NDK r27c
         run: |
-          curl --fail --location --silent --show-error https://mbf.bsquest.xyz/mbf-agent --output mbf-source/mbf-site/public/mbf-agent
-          echo 'c8a047a4b93710fdd14aa896f36343e23407015315ff79a593fca3266cc2826b  mbf-source/mbf-site/public/mbf-agent' | sha256sum --check --status
-          test "$(wc -c < mbf-source/mbf-site/public/mbf-agent)" -eq 14760488
+          set -euo pipefail
+          curl --fail --location --retry 3 https://dl.google.com/android/repository/android-ndk-r27c-linux.zip -o ndk.zip
+          # Official android/ndk release checksum, not a newly trusted agent hash.
+          echo '090e8083a715fdb1a3e402d0763c388abb03fb4e  ndk.zip' | sha1sum -c -
+          test "$(wc -c < ndk.zip)" -eq 663987688
+          unzip -q ndk.zip -d "$RUNNER_TEMP"
+          NDK_BIN="$RUNNER_TEMP/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          echo "CC_aarch64_linux_android=$NDK_BIN/aarch64-linux-android31-clang" >> "$GITHUB_ENV"
+          echo "AR_aarch64_linux_android=$NDK_BIN/llvm-ar" >> "$GITHUB_ENV"
+          echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$NDK_BIN/aarch64-linux-android31-clang" >> "$GITHUB_ENV"
+      - name: Fetch and verify pinned embedded libraries
+        working-directory: agent-source
+        run: |
+          set -euo pipefail
+          mkdir -p mbf-agent/libs
+          curl --fail --location --retry 3 https://github.com/sc2ad/LibMainLoader/releases/download/v0.2.0/libmain.so -o mbf-agent/libs/libmain.so
+          curl --fail --location --retry 3 https://github.com/sc2ad/scotland2/releases/download/v0.1.7/libsl2.so -o mbf-agent/libs/libsl2.so
+          curl --fail --location --retry 3 https://raw.githubusercontent.com/kodenamekrak/JusticeForQuest/e8afabbb6d4dab8e339ea2fbdc1b14e6ad955435/third_party/libovrplatformloader.so -o mbf-agent/libs/libovrplatformloader.so
+          cat > embedded.sha256 <<'HASHES'
+          5e3ef9701b89ae911113b0adad8f5d5b58f644867cdcd18f8a51ac807df60119  mbf-agent/libs/libmain.so
+          3c34627ede42c9281a0d28147bc222424c5dc451263a14c7a9ab6a88331890fe  mbf-agent/libs/libsl2.so
+          90bcb3f143c0cdfc9d26922bf5f06579551c82bfe43c2bf0c423eb6465226300  mbf-agent/libs/libovrplatformloader.so
+          HASHES
+          sha256sum -c embedded.sha256
+          cargo fetch --locked
+      - name: Build and verify fixed agent from pinned source
+        working-directory: agent-source
+        run: |
+          set -euo pipefail
+          cargo build --manifest-path mbf-agent/Cargo.toml --target aarch64-linux-android --release --locked --offline
+          sha256sum -c embedded.sha256
+          cp target/aarch64-linux-android/release/mbf-agent ../mbf-source/mbf-site/public/mbf-agent
+          cd ..
+          echo '6bc70a8870561211a0c51d86c28ae73d234a2c89e5c6abb1bc2241060a1d6882  mbf-source/mbf-site/public/mbf-agent' | sha256sum --check --status
+          test "$(wc -c < mbf-source/mbf-site/public/mbf-agent)" -eq 14792440
           cp web/agent_manifest.ts mbf-source/mbf-site/src/agent_manifest.ts
+          python3 - <<'PY'
+          import hashlib, pathlib, re
+          data = pathlib.Path("mbf-source/mbf-site/public/mbf-agent").read_bytes()
+          manifest = pathlib.Path("web/agent_manifest.ts").read_text()
+          length = int(re.search(r"AGENT_LENGTH: number = (\d+)", manifest)[1])
+          sha1 = re.search(r'AGENT_SHA1: string = "([A-F0-9]+)"', manifest)[1]
+          assert len(data) == length, "Agent manifest length mismatch"
+          assert hashlib.sha1(data).hexdigest().upper() == sha1, "Agent manifest SHA1 mismatch"
+          PY
 
       - name: Build bridge-aware MBF
         working-directory: mbf-source
         run: |
           pnpm install --frozen-lockfile --config.dangerouslyAllowAllBuilds=true
           pnpm -r --filter 'mbf-site...' build
+          cmp mbf-site/public/mbf-agent mbf-site/dist/mbf-agent
 
       - name: Assemble Pages artifact
         run: |
@@ -82,6 +140,18 @@ jobs:
         with:
           path: site
 
+  deploy:
+    # PR validation and beta-branch dispatches must never deploy.
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
