@@ -408,30 +408,32 @@ object DiagnosticsCollector {
                         "/storage/emulated/0/ModData/$gameId/logs2"
                 )
         debug("Collecting Beat Saber logs for $gameId from directories=$candidateDirs")
-        val logFiles =
-                candidateDirs
-                        .flatMap { dir ->
-                            val result =
-                                    runCatching {
-                                                AdbManager.shellArgs(
-                                                        context,
-                                                        deviceName,
-                                                        listOf("ls", "-1", dir),
-                                                        DIAGNOSTIC_SHELL_TIMEOUT_MS
-                                                )
-                                            }
-                                            .getOrNull()
-                            debugCommandResult("logs-ls", "ls -1 $dir", result)
-                            result?.stdout
-                                    ?.lineSequence()
-                                    ?.map { it.trim() }
-                                    ?.filter { it.endsWith(".log", ignoreCase = true) }
-                                    ?.map { "$dir/$it" }
-                                    ?.toList()
-                                    .orEmpty()
-                        }
-                        .distinct()
-                        .take(MAX_BEAT_SABER_LOG_FILES)
+        val candidates = candidateDirs.flatMap { dir ->
+            val listing = runCatching {
+                AdbManager.shellArgs(context, deviceName, listOf("ls", "-1", dir),
+                        DIAGNOSTIC_SHELL_TIMEOUT_MS)
+            }.getOrNull()
+            debugCommandResult("logs-ls", "ls -1 $dir", listing)
+            val paths = listing?.stdout?.lineSequence()
+                    ?.map { it.trim() }
+                    ?.filter { it.endsWith(".log", ignoreCase = true) }
+                    ?.map { "$dir/$it" }
+                    ?.toList().orEmpty()
+            if (paths.isEmpty()) return@flatMap emptyList<DiagnosticLogFile>()
+
+            // Android's stat supplies modification times without parsing locale-
+            // dependent ls dates. ADB joins shell arguments, so quote the format
+            // and filenames explicitly to preserve spaces and shell metacharacters.
+            val stat = runCatching {
+                AdbManager.shellArgs(context, deviceName,
+                        listOf("stat", "-c", DiagnosticLogSelection.shellQuote("%Y %n")) +
+                                paths.map { DiagnosticLogSelection.shellQuote(it) },
+                        DIAGNOSTIC_SHELL_TIMEOUT_MS)
+            }.getOrNull()
+            debugCommandResult("logs-stat", "stat timestamps in $dir", stat)
+            DiagnosticLogSelection.parseStatOutput(stat?.stdout.orEmpty())
+        }
+        val logFiles = DiagnosticLogSelection.selectNewest(candidates, MAX_BEAT_SABER_LOG_FILES)
         debug("Selected Beat Saber log files: $logFiles")
 
         val filesJson = JSONArray()
@@ -447,7 +449,7 @@ object DiagnosticsCollector {
                                                 "tail",
                                                 "-n",
                                                 MAX_BEAT_SABER_LOG_LINES_PER_FILE.toString(),
-                                                path
+                                                DiagnosticLogSelection.shellQuote(path)
                                         ),
                                         DIAGNOSTIC_SHELL_TIMEOUT_MS
                                 )
