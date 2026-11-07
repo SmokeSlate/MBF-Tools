@@ -21,6 +21,10 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 class GuideActivity : ComponentActivity() {
+    private var actionBusy = false
+    private val isExplicitRevisit: Boolean
+        get() = intent.getBooleanExtra(EXTRA_REVISIT_SETUP, false)
+
     private val worker: ExecutorService = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
     private val pollingRunnable =
@@ -217,6 +221,7 @@ class GuideActivity : ComponentActivity() {
         backButton.setOnClickListener { goBackOneStep() }
 
         nextButton.setOnClickListener {
+            if (actionBusy) return@setOnClickListener
             if (stepIndex < steps.lastIndex) {
                 stepIndex += 1
                 renderStep()
@@ -264,7 +269,7 @@ class GuideActivity : ComponentActivity() {
     }
 
     private fun computeInitialStep(): Int {
-        if (AppPrefs.isSetupComplete(this)) return -1
+        if (SetupFlowPolicy.skipGuide(AppPrefs.isSetupComplete(this), isExplicitRevisit)) return -1
         return when {
             isDeveloperModeEnabled() && isWirelessDebuggingSettingEnabled() -> STEP_PAIR
             isDeveloperModeEnabled() -> STEP_WIRELESS_MENU
@@ -306,7 +311,7 @@ class GuideActivity : ComponentActivity() {
         } else {
             primaryButton.visibility = android.view.View.GONE
         }
-        backButton.isEnabled = stepIndex > 0
+        backButton.isEnabled = SetupFlowPolicy.actionEnabled(actionBusy, stepIndex > 0)
         nextButton.text =
                 getString(
                         if (stepIndex == steps.lastIndex) R.string.guide_action_finish
@@ -318,6 +323,7 @@ class GuideActivity : ComponentActivity() {
     }
 
     private fun goBackOneStep(): Boolean {
+        if (actionBusy) return true
         if (stepIndex <= 0) {
             return false
         }
@@ -360,14 +366,7 @@ class GuideActivity : ComponentActivity() {
     }
 
     private fun updateNextAvailability() {
-        nextButton.isEnabled =
-                when (stepIndex) {
-                    STEP_PRECHECK ->
-                            multipleAccountsCheckBox.isChecked && unlockCodeCheckBox.isChecked
-                    STEP_BUILD_NUMBER -> isDeveloperModeEnabled()
-                    STEP_WIRELESS_ENABLE -> isWirelessDebuggingEnabled()
-                    else -> true
-                }
+        nextButton.isEnabled = SetupFlowPolicy.actionEnabled(actionBusy, isNextStepAvailable())
     }
 
     private fun refreshGuideState() {
@@ -391,6 +390,7 @@ class GuideActivity : ComponentActivity() {
     }
 
     private fun pairDevice() {
+        if (actionBusy) return
         val pairingCode = pairingCodeInput.text.toString().trim()
         if (pairingCode.length != 6) {
             AppLog.warn("Guide", "Pairing blocked because the entered pairing code was invalid.")
@@ -407,6 +407,7 @@ class GuideActivity : ComponentActivity() {
                     "Pairing requested without a pairing port. Auto-detecting pairing port first."
                 }
         )
+        val enteredDebugPort = debugPortInput.text.toString().trim().toIntOrNull()
         setBusy(true)
         worker.execute {
             val pairingPort =
@@ -433,7 +434,7 @@ class GuideActivity : ComponentActivity() {
                                     )
                     ) {
                         runCatching {
-                                    debugPortInput.text.toString().trim().toIntOrNull()
+                                    enteredDebugPort
                                             ?: AppPrefs.getDebugPort(this).trim().toIntOrNull()
                                                     ?: AdbManager.detectDebugPort(this)
                                 }
@@ -457,6 +458,16 @@ class GuideActivity : ComponentActivity() {
                         )
                     }
 
+            val connectionResult = connectAttempt.result.mapCatching { command ->
+                val deviceName = if (isSuccessfulConnect(command)) {
+                    val name = AdbManager.getAuthorizedDevices(this).firstOrNull()?.name
+                            ?: error("ADB connected but no authorized device was found.")
+                    runCatching { AdbManager.grantSelfPermissions(this, name) }
+                    name
+                } else null
+                command to deviceName
+            }
+
             runOnUiThread {
                 setBusy(false)
                 if (enteredPairingPort == null && pairingPort > 0) {
@@ -476,18 +487,9 @@ class GuideActivity : ComponentActivity() {
                             if (command.exitCode == 0 &&
                                             !command.stdout.startsWith("Failed:", ignoreCase = true)
                             ) {
-                                connectAttempt.result.onSuccess { connectCommand ->
+                                connectionResult.onSuccess { (connectCommand, deviceName) ->
                                     if (isSuccessfulConnect(connectCommand)) {
-                                        connectedDeviceName =
-                                                AdbManager.getAuthorizedDevices(this)
-                                                        .firstOrNull()
-                                                        ?.name
-                                        runCatching {
-                                            AdbManager.grantSelfPermissions(
-                                                    this,
-                                                    connectedDeviceName
-                                            )
-                                        }
+                                        connectedDeviceName = deviceName
                                         AppPrefs.setSetupComplete(this, true)
                                         AppLog.info(
                                                 "Guide",
@@ -514,7 +516,7 @@ class GuideActivity : ComponentActivity() {
                                         )
                                     }
                                 }
-                                connectAttempt.result.onFailure {
+                                connectionResult.onFailure {
                                     AppLog.error(
                                             "Guide",
                                             "Pairing succeeded but connect threw an error: ${it.message ?: getString(R.string.toast_connect_failed)}"
@@ -545,6 +547,7 @@ class GuideActivity : ComponentActivity() {
     }
 
     private fun detectPairingPort() {
+        if (actionBusy) return
         AppLog.info("Guide", "Manual pairing-port detection requested.")
         setBusy(true)
         worker.execute {
@@ -552,7 +555,7 @@ class GuideActivity : ComponentActivity() {
             runOnUiThread {
                 setBusy(false)
                 if (port > 0) {
-                    autofillPairingPort(port)
+                    autofillPairingPort(port, force = true)
                     updatePairSummary()
                     AppLog.info("Guide", "Detected pairing port $port.")
                     toast(getString(R.string.toast_pairing_port_detected, port))
@@ -565,6 +568,7 @@ class GuideActivity : ComponentActivity() {
     }
 
     private fun detectDebugPort(showToast: Boolean) {
+        if (actionBusy) return
         AppLog.info("Guide", "Wireless debug-port detection requested.")
         setBusy(true)
         worker.execute {
@@ -572,7 +576,7 @@ class GuideActivity : ComponentActivity() {
             runOnUiThread {
                 setBusy(false)
                 if (port > 0) {
-                    autofillDebugPort(port, force = true)
+                    autofillDebugPort(port, force = showToast)
                     updatePairSummary()
                     AppLog.info("Guide", "Detected wireless debug port $port.")
                     if (showToast) {
@@ -612,6 +616,7 @@ class GuideActivity : ComponentActivity() {
     }
 
     private fun autoDetectDebugPortIfNeeded() {
+        if (actionBusy) return
         if (stepIndex !in setOf(STEP_WIRELESS_MENU, STEP_WIRELESS_ENABLE)) {
             return
         }
@@ -622,6 +627,7 @@ class GuideActivity : ComponentActivity() {
     }
 
     private fun launchIntegratedMbf() {
+        if (actionBusy) return
         val device = connectedDeviceName
         if (device == null) {
             AppLog.warn("Guide", "Launch MBF blocked because no headset is connected.")
@@ -683,10 +689,12 @@ class GuideActivity : ComponentActivity() {
     }
 
     private fun setBusy(isBusy: Boolean) {
+        actionBusy = isBusy
         primaryButton.isEnabled = !isBusy
         detectPairingPortButton.isEnabled = !isBusy
         detectPortButton.isEnabled = !isBusy
         shareDebugLogsButton.isEnabled = !isBusy
+        changeDetailsButton.isEnabled = !isBusy
         nextButton.isEnabled = !isBusy && isNextStepAvailable()
         backButton.isEnabled = !isBusy && stepIndex > 0
     }
@@ -714,10 +722,7 @@ class GuideActivity : ComponentActivity() {
     }
 
     private fun autofillDebugPort(port: Int, force: Boolean = false) {
-        if (port <= 0) {
-            return
-        }
-        if (!force && debugPortInput.text.toString().trim().toIntOrNull() != null) {
+        if (!SetupFlowPolicy.replacePort(debugPortInput.text.toString(), port, force)) {
             return
         }
         debugPortInput.setText(port.toString())
@@ -725,8 +730,8 @@ class GuideActivity : ComponentActivity() {
         updatePairSummary()
     }
 
-    private fun autofillPairingPort(port: Int) {
-        if (port <= 0 || pairingPortInput.text.toString().trim().toIntOrNull() != null) {
+    private fun autofillPairingPort(port: Int, force: Boolean = false) {
+        if (!SetupFlowPolicy.replacePort(pairingPortInput.text.toString(), port, force)) {
             return
         }
         pairingPortInput.setText(port.toString())
@@ -917,7 +922,7 @@ class GuideActivity : ComponentActivity() {
     }
 
     private fun maybeLaunchCompletedSetup() {
-        if (hasAutoLaunchedCompletedSetup || connectedDeviceName == null) {
+        if (!SetupFlowPolicy.autoLaunchAllowed(isExplicitRevisit, actionBusy, hasAutoLaunchedCompletedSetup) || connectedDeviceName == null) {
             return
         }
         if (!isDeveloperModeEnabled() || !isWirelessDebuggingEnabled()) {
@@ -947,6 +952,7 @@ class GuideActivity : ComponentActivity() {
     }
 
     companion object {
+        const val EXTRA_REVISIT_SETUP = "revisit_setup"
         private const val STEP_PRECHECK = 0
         private const val STEP_SETTINGS = 1
         private const val STEP_ABOUT = 2
